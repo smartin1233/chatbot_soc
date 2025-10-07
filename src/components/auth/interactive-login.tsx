@@ -73,15 +73,11 @@ export default function InteractiveLogin({ onLogin }: InteractiveLoginProps) {
         }
 
         // Simulate loading for better UX
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Check credentials
-        if (username === "admin" && password === "demo") {
-            onLogin(username, password);
-        } else {
-            setError("Invalid credentials. Use username: admin, password: demo");
-        }
-
+        // Accept any credentials - they will be validated by the API
+        onLogin(username, password);
+        
         setIsLoading(false);
     };
 
@@ -90,11 +86,11 @@ export default function InteractiveLogin({ onLogin }: InteractiveLoginProps) {
         setUsername("");
         setPassword("");
 
-        // Enter username
-        const demoUsername = "admin";
+        // Enter username - use actual API credentials
+        const demoUsername = "martin@demo.com";
         for (let i = 0; i <= demoUsername.length; i++) {
             setUsername(demoUsername.slice(0, i));
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
 
         // Small pause
@@ -325,7 +321,7 @@ export default function InteractiveLogin({ onLogin }: InteractiveLoginProps) {
                                         <h4 className="text-sm font-medium text-blue-900">Demo Credentials</h4>
                                     </div>
                                     <div className="text-sm text-blue-700 space-y-1">
-                                        <p><strong>Username:</strong> admin</p>
+                                        <p><strong>Username:</strong> martin@demo.com</p>
                                         <p><strong>Password:</strong> demo</p>
                                     </div>
                                     <Button

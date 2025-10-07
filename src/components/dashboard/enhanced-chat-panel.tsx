@@ -386,7 +386,11 @@ class EnhancedMultiAgentChatHandler {
     requestCount: 0,
     errorCount: 0,
     avgResponseTime: 0,
-    cacheHitRate: 0
+    cacheHitRate: 0,
+    totalTokensUsed: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    avgTokensPerRequest: 0
   };
 
   constructor(dispatch: any) {
@@ -559,6 +563,15 @@ class EnhancedMultiAgentChatHandler {
         });
 
         const aiResponse = completion.choices[0].message.content ?? "";
+        
+        // Track token usage if available
+        if (completion.usage && !completion.fromCache) {
+          this.performanceMetrics.totalTokensUsed += completion.usage.total_tokens || 0;
+          this.performanceMetrics.promptTokens += completion.usage.prompt_tokens || 0;
+          this.performanceMetrics.completionTokens += completion.usage.completion_tokens || 0;
+          this.performanceMetrics.avgTokensPerRequest = 
+            this.performanceMetrics.totalTokensUsed / this.performanceMetrics.requestCount;
+        }
         this.dispatch({ type: 'ADD_THINKING_STEP', payload: `✅ ${agent.name} analysis complete` });
 
         // Mark current step as COMPLETED and update analyzed data
@@ -664,7 +677,12 @@ class EnhancedMultiAgentChatHandler {
       agentType: finalAgentType,
       reportData: finalReportData,
       performance: this.performanceMetrics,
-      multiAgent: agents.length > 1
+      multiAgent: agents.length > 1,
+      tokenUsage: {
+        promptTokens: this.performanceMetrics.promptTokens,
+        completionTokens: this.performanceMetrics.completionTokens,
+        totalTokens: this.performanceMetrics.totalTokensUsed
+      }
     };
   }
 
@@ -863,18 +881,51 @@ function EnhancedChatBubble({
                 Performance
               </Button>
             )}
+            {message.tokenUsage && message.tokenUsage.totalTokens > 0 && (
+              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200">
+                {message.tokenUsage.totalTokens.toLocaleString()} tokens
+              </Badge>
+            )}
           </div>
         )}
 
         {/* Performance Metrics Display */}
         {showPerformance && performance && !isUser && (
-          <Card className="mb-2 p-2">
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>Cache Hit Rate: {(performance.cacheHitRate * 100).toFixed(1)}%</div>
-              <div>Avg Response: {performance.avgResponseTime}ms</div>
-              <div>Requests: {performance.requestCount}</div>
-              <div>Errors: {performance.errorCount}</div>
+          <Card className="mb-2 p-3">
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Cache Hit:</span>
+                <span className="font-medium">{(performance.cacheHitRate * 100).toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Response:</span>
+                <span className="font-medium">{performance.avgResponseTime}ms</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Requests:</span>
+                <span className="font-medium">{performance.requestCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Errors:</span>
+                <span className="font-medium">{performance.errorCount}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Total Tokens:</span>
+                <span className="font-medium">{performance.totalTokensUsed?.toLocaleString() || 0}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Avg/Request:</span>
+                <span className="font-medium">{Math.round(performance.avgTokensPerRequest || 0)}</span>
+              </div>
             </div>
+            {performance.totalTokensUsed > 0 && (
+              <div className="mt-2 pt-2 border-t border-border/50">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Prompt: {performance.promptTokens?.toLocaleString() || 0}</span>
+                  <span>Completion: {performance.completionTokens?.toLocaleString() || 0}</span>
+                </div>
+              </div>
+            )}
           </Card>
         )}
         
@@ -1559,7 +1610,7 @@ Would you like to customize these parameters, or should I use smart defaults?`,
         conversationContext: state.conversationContext // Include conversation context
       });
 
-      const { response: responseText, agentType, reportData, performance: perfMetrics, multiAgent } = result;
+      const { response: responseText, agentType, reportData, performance: perfMetrics, multiAgent, tokenUsage } = result;
       setPerformance(perfMetrics);
 
       dispatch({ type: 'SET_PROCESSING', payload: false });
@@ -1642,7 +1693,8 @@ Would you like to customize these parameters, or should I use smart defaults?`,
           visualization,
           agentType,
           canGenerateReport: !!reportData || multiAgent,
-          reportData
+          reportData,
+          tokenUsage
         }
       });
 
@@ -1857,6 +1909,16 @@ Ready to customize, or should I proceed with intelligent defaults?`,
                       Settings
                     </Button>
                   </div>
+                  
+                  {/* Session Token Counter */}
+                  {performance && performance.totalTokensUsed > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Zap className="h-3 w-3" />
+                      <span>Session: {performance.totalTokensUsed.toLocaleString()} tokens</span>
+                      <span className="text-muted-foreground/60">•</span>
+                      <span>Avg: {Math.round(performance.avgTokensPerRequest || 0)}/req</span>
+                    </div>
+                  )}
                   
                   {performance && (
                     <div className="text-xs text-muted-foreground flex items-center gap-2">

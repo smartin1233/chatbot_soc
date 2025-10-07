@@ -67,6 +67,19 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
   };
 
   const handleSave = async () => {
+    // Validate at least one provider is enabled
+    if (config.enableOpenAI === false && config.enableOpenRouter === false) {
+      alert('At least one API provider must be enabled');
+      return;
+    }
+
+    // If preferred provider is disabled, switch to the enabled one
+    if (config.preferredProvider === 'openai' && config.enableOpenAI === false) {
+      config.preferredProvider = 'openrouter';
+    } else if (config.preferredProvider === 'openrouter' && config.enableOpenRouter === false) {
+      config.preferredProvider = 'openai';
+    }
+
     setSaving(true);
 
     try {
@@ -298,6 +311,46 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
             <TabsContent value="preferences" className="space-y-4">
               <Card>
                 <CardHeader>
+                  <CardTitle className="text-sm">Provider Enable/Disable</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <Label htmlFor="enable-openai" className="font-medium">OpenAI</Label>
+                      <p className="text-sm text-muted-foreground">Enable OpenAI API for high-quality responses</p>
+                    </div>
+                    <Switch
+                      id="enable-openai"
+                      checked={config.enableOpenAI !== false}
+                      onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableOpenAI: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <Label htmlFor="enable-openrouter" className="font-medium">OpenRouter</Label>
+                      <p className="text-sm text-muted-foreground">Enable OpenRouter API for free models</p>
+                    </div>
+                    <Switch
+                      id="enable-openrouter"
+                      checked={config.enableOpenRouter !== false}
+                      onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableOpenRouter: checked }))}
+                    />
+                  </div>
+
+                  {!config.enableOpenAI && !config.enableOpenRouter && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Warning:</strong> At least one API provider must be enabled for the system to function.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-sm">Provider Preferences</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -315,8 +368,11 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                             ...prev,
                             preferredProvider: e.target.value as 'openai' | 'openrouter'
                           }))}
+                          disabled={config.enableOpenAI === false}
                         />
-                        <Label htmlFor="prefer-openai">OpenAI (High Quality)</Label>
+                        <Label htmlFor="prefer-openai" className={config.enableOpenAI === false ? 'text-muted-foreground' : ''}>
+                          OpenAI (High Quality) {config.enableOpenAI === false && '(Disabled)'}
+                        </Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
@@ -329,8 +385,11 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                             ...prev,
                             preferredProvider: e.target.value as 'openai' | 'openrouter'
                           }))}
+                          disabled={config.enableOpenRouter === false}
                         />
-                        <Label htmlFor="prefer-openrouter">OpenRouter (Free)</Label>
+                        <Label htmlFor="prefer-openrouter" className={config.enableOpenRouter === false ? 'text-muted-foreground' : ''}>
+                          OpenRouter (Free) {config.enableOpenRouter === false && '(Disabled)'}
+                        </Label>
                       </div>
                     </div>
                   </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import type { BusinessUnit, LineOfBusiness, ChatMessage, WorkflowStep } from '@/lib/types';
-import { mockBusinessUnits } from '@/lib/data';
+import { getAPIClient } from '@/lib/api-client';
 import type { AgentMonitorProps } from '@/lib/types';
 
 type OnboardingStep =
@@ -87,7 +87,9 @@ type Action =
   | { type: 'SET_ONBOARDING_STEP'; payload: OnboardingStep }
   | { type: 'ADVANCE_ONBOARDING_STEP' }
   | { type: 'RESET_ONBOARDING_PROGRESS' }
-  | { type: 'SET_ONBOARDING_PROGRESS'; payload: OnboardingProgressStep[] };
+  | { type: 'SET_ONBOARDING_PROGRESS'; payload: OnboardingProgressStep[] }
+  | { type: 'SET_BUSINESS_UNITS'; payload: BusinessUnit[] }
+  | { type: 'SET_LOADING'; payload: boolean };
 
 const defaultOnboardingProgress: OnboardingProgressStep[] = [
   { id: 'welcome', name: 'Welcome', status: 'completed', description: 'Welcome to the BI onboarding assistant.' },
@@ -101,7 +103,7 @@ const defaultOnboardingProgress: OnboardingProgressStep[] = [
 
 const initialState: AppState = {
   apiKey: null,
-  businessUnits: mockBusinessUnits,
+  businessUnits: [],
   isAuthenticated: typeof window !== "undefined" ? localStorage.getItem("isAuthenticated") === "true" : false,
   selectedBu: null,
   selectedLob: null,
@@ -137,15 +139,6 @@ const initialState: AppState = {
     end: new Date(),
     preset: 'last_30_days'
   },
-};
-
-const getRandomColor = () => {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
 };
 
 function appReducer(state: AppState, action: Action): AppState {
@@ -218,46 +211,65 @@ function appReducer(state: AppState, action: Action): AppState {
         agentMonitor: { ...state.agentMonitor, isOpen: action.payload },
       };
 
-    case 'ADD_BU':
+    case 'ADD_BU': {
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+      const now = new Date();
       const newBu: BusinessUnit = {
         id: action.payload.id || `bu-${Date.now()}`,
         name: action.payload.name,
         description: action.payload.description,
-        linesOfBusiness: [],
+        code: `BU${Date.now()}`,
+        startDate: now,
+        displayName: action.payload.name,
+        color: colors[state.businessUnits.length % colors.length],
+        lobs: [],
+        createdDate: now,
+        updatedDate: now,
+        status: 'active',
       };
       return { ...state, businessUnits: [...state.businessUnits, newBu] };
+    }
 
-    case 'ADD_LOB':
+    case 'ADD_LOB': {
+      const now = new Date();
       return {
         ...state,
         businessUnits: state.businessUnits.map(bu =>
           bu.id === action.payload.buId
             ? {
               ...bu,
-              linesOfBusiness: [
-                ...bu.linesOfBusiness,
+              lobs: [
+                ...bu.lobs,
                 {
                   id: action.payload.id || `lob-${Date.now()}`,
                   name: action.payload.name,
                   description: action.payload.description,
+                  code: `LOB${Date.now()}`,
+                  businessUnitId: action.payload.buId,
+                  startDate: now,
+                  hasData: false,
+                  dataUploaded: null,
                   recordCount: 0,
-                  dataQuality: { score: 0, trend: 'stable', seasonality: 'none' },
-                  data: [],
+                  dataQuality: { trend: 'stable', seasonality: 'none' },
+                  createdDate: now,
+                  updatedDate: now,
+                  status: 'active',
                 },
               ],
             }
             : bu
         ),
       };
+    }
 
     case 'UPLOAD_DATA':
       return {
         ...state,
         businessUnits: state.businessUnits.map(bu => ({
           ...bu,
-          linesOfBusiness: bu.linesOfBusiness.map(lob =>
+          lobs: bu.lobs.map(lob =>
             lob.id === action.payload.lobId
-              ? { ...lob, recordCount: lob.recordCount + 1 }
+              ? { ...lob, recordCount: lob.recordCount + 1, hasData: true, dataUploaded: new Date() }
               : lob
           ),
         })),
@@ -267,8 +279,8 @@ function appReducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         messages: state.messages.map(msg =>
-          msg.id === action.payload.messageId
-            ? { ...msg, showVisualization: !msg.showVisualization }
+          msg.id === action.payload.messageId && msg.visualization
+            ? { ...msg, visualization: { ...msg.visualization, isShowing: !msg.visualization.isShowing } }
             : msg
         ),
       };
@@ -361,6 +373,12 @@ function appReducer(state: AppState, action: Action): AppState {
     case 'SET_ONBOARDING_PROGRESS':
       return { ...state, onboardingProgress: action.payload };
 
+    case 'SET_BUSINESS_UNITS':
+      return { ...state, businessUnits: action.payload };
+
+    case 'SET_LOADING':
+      return { ...state, isProcessing: action.payload };
+
     default:
       return state;
   }
@@ -369,15 +387,163 @@ function appReducer(state: AppState, action: Action): AppState {
 type AppContextType = {
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  refreshData: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [hasLoadedData, setHasLoadedData] = React.useState(false);
+
+  // Load business units from backend on mount
+  React.useEffect(() => {
+    const loadBusinessUnits = async () => {
+      // Check if authenticated
+      const isAuthenticated = typeof window !== 'undefined' 
+        ? localStorage.getItem('isAuthenticated') === 'true'
+        : false;
+
+      if (!isAuthenticated || hasLoadedData) {
+        return;
+      }
+
+      try {
+        dispatch({ type: 'SET_PROCESSING', payload: true });
+        
+        // Show loading message
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: 'loading-bu-lob',
+            role: 'assistant',
+            content: '🔄 Loading your Business Units and Lines of Business from the backend...',
+            isTyping: true,
+          },
+        });
+        
+        const apiClient = getAPIClient();
+        
+        // Get credentials from localStorage or use defaults
+        const username = typeof window !== 'undefined' 
+          ? localStorage.getItem('zentere_username') || 'martin@demo.com'
+          : 'martin@demo.com';
+        const password = typeof window !== 'undefined'
+          ? localStorage.getItem('zentere_password') || 'demo'
+          : 'demo';
+
+        console.log('🔐 Authenticating with:', username);
+
+        // Authenticate
+        await apiClient.authenticate(username, password);
+        
+        console.log('✅ Authentication successful, fetching data...');
+
+        // Fetch business units with LOBs and their data
+        const businessUnits = await apiClient.getBusinessUnitsWithLOBs();
+        
+        console.log('📊 Loaded BUs:', businessUnits.length);
+
+        dispatch({ type: 'SET_BUSINESS_UNITS', payload: businessUnits });
+        setHasLoadedData(true);
+        
+        // Update the loading message with success
+        const totalLobs = businessUnits.reduce((sum, bu) => sum + bu.lobs.length, 0);
+        const lobsWithData = businessUnits.reduce(
+          (sum, bu) => sum + bu.lobs.filter(lob => lob.hasData).length, 
+          0
+        );
+        
+        dispatch({
+          type: 'UPDATE_LAST_MESSAGE',
+          payload: {
+            content: `✅ **Successfully loaded from backend!**\n\n📊 **Summary:**\n• ${businessUnits.length} Business Units\n• ${totalLobs} Lines of Business\n• ${lobsWithData} LOBs with data\n\nSelect a Business Unit and Line of Business to get started with analysis.`,
+            isTyping: false,
+            suggestions: ['View all Business Units', 'Create new Business Unit', 'Upload data to LOB'],
+          },
+        });
+      } catch (error) {
+        console.error('❌ Failed to load business units:', error);
+        
+        dispatch({
+          type: 'UPDATE_LAST_MESSAGE',
+          payload: {
+            content: `❌ **Failed to load data from backend**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease check your connection and try again.`,
+            isTyping: false,
+            suggestions: ['Retry loading', 'Use demo data', 'Check connection'],
+          },
+        });
+      } finally {
+        dispatch({ type: 'SET_PROCESSING', payload: false });
+      }
+    };
+
+    loadBusinessUnits();
+  }, []); // Run once on mount
+
+  // Manual refresh function
+  const refreshData = React.useCallback(async () => {
+    const isAuthenticated = typeof window !== 'undefined' 
+      ? localStorage.getItem('isAuthenticated') === 'true'
+      : false;
+
+    if (!isAuthenticated) {
+      return;
+    }
+
+    try {
+      dispatch({ type: 'SET_PROCESSING', payload: true });
+      
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '🔄 Refreshing data from backend...',
+          isTyping: true,
+        },
+      });
+
+      const apiClient = getAPIClient();
+      const username = localStorage.getItem('zentere_username') || 'martin@demo.com';
+      const password = localStorage.getItem('zentere_password') || 'demo';
+
+      await apiClient.authenticate(username, password);
+      const businessUnits = await apiClient.getBusinessUnitsWithLOBs();
+      
+      dispatch({ type: 'SET_BUSINESS_UNITS', payload: businessUnits });
+      
+      const totalLobs = businessUnits.reduce((sum, bu) => sum + bu.lobs.length, 0);
+      const lobsWithData = businessUnits.reduce(
+        (sum, bu) => sum + bu.lobs.filter(lob => lob.hasData).length, 
+        0
+      );
+
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: `✅ **Data refreshed successfully!**\n\n📊 **Summary:**\n• ${businessUnits.length} Business Units\n• ${totalLobs} Lines of Business\n• ${lobsWithData} LOBs with data`,
+          isTyping: false,
+          suggestions: ['View Business Units', 'Analyze data', 'Upload new data'],
+        },
+      });
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: `❌ **Failed to refresh data**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          isTyping: false,
+          suggestions: ['Try again', 'Check connection'],
+        },
+      });
+    } finally {
+      dispatch({ type: 'SET_PROCESSING', payload: false });
+    }
+  }, []);
 
   return (
-    <AppContext.Provider value={{ state, dispatch }}>
+    <AppContext.Provider value={{ state, dispatch, refreshData }}>
       {children}
     </AppContext.Provider>
   );

@@ -428,6 +428,11 @@ export default function BuLobSelector({
 }: { compact?: boolean; className?: string; variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'link' | 'destructive'; size?: 'sm' | 'default' | 'lg' | 'icon'; triggerLabel?: string; }) {
     const { state, dispatch } = useApp();
     const { businessUnits, selectedBu, selectedLob } = state;
+    
+    // Debug: Log business units when they change
+    React.useEffect(() => {
+        console.log('🔍 BU/LOB Selector - businessUnits:', businessUnits.length, businessUnits);
+    }, [businessUnits]);
     const [isAddBuOpen, setAddBuOpen] = useState(false);
     const [isAddLobOpen, setAddLobOpen] = useState(false);
     const [currentBuForLob, setCurrentBuForLob] = useState<string | null>(null);
@@ -473,32 +478,103 @@ export default function BuLobSelector({
     };
 
     const handleLobSelect = async (lob: LineOfBusiness, bu: BusinessUnit) => {
-        dispatch({ type: 'RESET_WORKFLOW' });
+        // Don't reset workflow - let it continue if active
+        // dispatch({ type: 'RESET_WORKFLOW' });
         dispatch({ type: 'SET_SELECTED_BU', payload: bu });
         dispatch({ type: 'SET_SELECTED_LOB', payload: lob });
 
-        // Generate professional response for LOB choice
-        const response = await agentResponseGenerator.generateResponse({
-            intent: 'lob_selected',
-            data: {
-                name: lob.name,
-                code: lob.code || 'N/A',
-                hasData: lob.hasData,
-                recordCount: lob.recordCount,
-                dataQuality: lob.dataQuality,
-                dataUploaded: lob.dataUploaded
-            }
-        });
+        // Show data preview with actual data
+        if (lob.hasData && lob.mockData && lob.mockData.length > 0) {
+            // Get first 10 and last 10 records for preview
+            const previewData = [
+                ...lob.mockData.slice(0, 10),
+                ...(lob.mockData.length > 20 ? lob.mockData.slice(-10) : [])
+            ];
 
-        dispatch({
-            type: 'ADD_MESSAGE',
-            payload: {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: response.content,
-                suggestions: response.nextActions.map(action => action.text)
-            }
-        });
+            // Format date range
+            const firstDate = lob.mockData[0].Date;
+            const lastDate = lob.mockData[lob.mockData.length - 1].Date;
+            const dateRange = `${new Date(firstDate).toLocaleDateString()} to ${new Date(lastDate).toLocaleDateString()}`;
+
+            // Calculate statistics
+            const values = lob.mockData.map(d => d.Value);
+            const avgValue = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+            const minValue = Math.min(...values).toFixed(2);
+            const maxValue = Math.max(...values).toFixed(2);
+
+            // Create preview table
+            const previewTable = previewData.slice(0, 10).map(row => 
+                `| ${new Date(row.Date).toLocaleDateString()} | ${row.Value.toLocaleString()} |`
+            ).join('\n');
+
+            const content = `✅ **Selected: ${lob.name}**
+
+📊 **Data Overview:**
+• **Business Unit:** ${bu.name}
+• **Line of Business:** ${lob.name}
+• **Code:** ${lob.code || 'N/A'}
+• **Total Records:** ${lob.recordCount.toLocaleString()}
+• **Date Range:** ${dateRange}
+
+📈 **Statistics:**
+• **Average Value:** ${avgValue}
+• **Min Value:** ${minValue}
+• **Max Value:** ${maxValue}
+• **Data Quality:** ${lob.dataQuality?.trend || 'Good'}
+
+📋 **Data Preview (First 10 records):**
+\`\`\`
+| Date | Value |
+|------|-------|
+${previewTable}
+${lob.recordCount > 10 ? `\n... and ${lob.recordCount - 10} more records` : ''}
+\`\`\`
+
+Your data is loaded and ready for analysis!`;
+
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content,
+                    visualization: {
+                        data: lob.mockData,
+                        target: 'Value',
+                        isShowing: true
+                    },
+                    suggestions: [
+                        'Show full data visualization',
+                        'Run forecasting analysis',
+                        'Export data to CSV',
+                        'View data quality report'
+                    ]
+                }
+            });
+        } else {
+            // No data available
+            const response = await agentResponseGenerator.generateResponse({
+                intent: 'lob_selected',
+                data: {
+                    name: lob.name,
+                    code: lob.code || 'N/A',
+                    hasData: lob.hasData,
+                    recordCount: lob.recordCount,
+                    dataQuality: lob.dataQuality,
+                    dataUploaded: lob.dataUploaded
+                }
+            });
+
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: response.content,
+                    suggestions: response.nextActions.map(action => action.text)
+                }
+            });
+        }
     };
 
     const openAddLobModal = (buId: string) => {

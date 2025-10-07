@@ -100,6 +100,12 @@ export type ChatMessage = {
   agentType?: string;
   canGenerateReport?: boolean;
   reportData?: any;
+  tokenUsage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    fromCache?: boolean;
+  };
 };
 
 export type WorkflowStatus = 'completed' | 'active' | 'pending' | 'error';

@@ -16,17 +16,14 @@ export default function LoginPage() {
 
   // Auth handler for InteractiveLogin
   const handleLogin = (username: string, password: string) => {
-    // Simple authentication check (you can customize this)
-    if (username === 'admin' && password === 'demo') {
-      localStorage.setItem("isAuthenticated", "true");
-      router.push("/main");
-    } else {
-      // Handle invalid credentials
-      alert("Invalid credentials. Use admin/demo");
-    }
+    // Store credentials for API authentication
+    localStorage.setItem("isAuthenticated", "true");
+    localStorage.setItem("zentere_username", username);
+    localStorage.setItem("zentere_password", password);
+    router.push("/main");
   };
 
-  // Don't render login if already authenticated
+  // Skip rendering if already authenticated
   if (typeof window !== "undefined" && localStorage.getItem("isAuthenticated") === "true") {
     return null;
   }
