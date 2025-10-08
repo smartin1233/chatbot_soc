@@ -159,15 +159,17 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
               {chartType === 'line' ? (
                 <Line
                   type="monotone"
+                  data={actualData}
                   dataKey={dataKey}
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   name="Actual"
                   dot={{ r: 3 }}
-                  connectNulls={true}
+                  connectNulls={false}
                 />
               ) : (
                 <Bar
+                  data={actualData}
                   dataKey={dataKey}
                   fill="hsl(var(--primary))"
                   name="Actual"
@@ -179,30 +181,35 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                 <>
                   <Line
                     type="monotone"
+                    data={forecastData}
                     dataKey="Forecast"
                     stroke="#3b82f6"
                     strokeWidth={2}
                     strokeDasharray="5 5"
                     name="Forecast"
                     dot={{ r: 3, fill: '#3b82f6' }}
-                    connectNulls={true}
+                    connectNulls={false}
                   />
                   {/* Confidence Interval */}
                   <Area
                     type="monotone"
+                    data={forecastData}
                     dataKey="ForecastUpper"
                     stroke="none"
                     fill="#3b82f6"
                     fillOpacity={0.1}
-                    name="Upper Bound"
+                    name="Confidence Interval"
+                    activeDot={false}
                   />
                   <Area
                     type="monotone"
+                    data={forecastData}
                     dataKey="ForecastLower"
                     stroke="none"
-                    fill="#3b82f6"
-                    fillOpacity={0.1}
-                    name="Lower Bound"
+                    fill="hsl(var(--background))"
+                    fillOpacity={1.0}
+                    name=""
+                    activeDot={false}
                   />
                 </>
               )}

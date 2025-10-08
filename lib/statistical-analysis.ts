@@ -463,7 +463,7 @@ export class EnhancedStatisticalAnalyzer {
           }
         ])
       )
-    })).map(intervals => intervals.confidence_0.95); // Return 95% CI as default
+    })).map((intervals: any) => intervals['confidence_0.95']); // Return 95% CI as default
   }
 }
 

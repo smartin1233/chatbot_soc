@@ -150,46 +150,6 @@ export default function BIDashboard() {
           is_future: true
         });
       });
-    } else {
-      // Fallback: Generate forecast using linear regression if no forecast data exists
-      const values = historical.map(h => h.Value);
-      const n = values.length;
-      let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
-      for (let i = 0; i < n; i++) {
-        sumX += i;
-        sumY += values[i];
-        sumXY += i * values[i];
-        sumX2 += i * i;
-      }
-
-      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-      const intercept = (sumY - slope * sumX) / n;
-
-      // Calculate standard deviation for confidence intervals
-      const predictions = values.map((_, i) => slope * i + intercept);
-      const residuals = values.map((v, i) => v - predictions[i]);
-      const variance = residuals.reduce((sum, r) => sum + r * r, 0) / (n - 2);
-      const stdDev = Math.sqrt(variance);
-
-      // Generate future forecast points
-      const lastDate = new Date(historical[historical.length - 1].Date);
-
-      for (let i = 1; i <= 14; i++) {
-        const forecastValue = slope * (n + i - 1) + intercept;
-        const confidenceInterval = 1.96 * stdDev * Math.sqrt(1 + 1 / n + Math.pow(i, 2) / sumX2);
-
-        const futureDate = new Date(lastDate);
-        futureDate.setDate(futureDate.getDate() + i);
-
-        forecastPoints.push({
-          date: futureDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          forecast: Math.max(0, forecastValue),
-          upper_ci: Math.max(0, forecastValue + confidenceInterval),
-          lower_ci: Math.max(0, forecastValue - confidenceInterval),
-          is_future: true
-        });
-      }
     }
 
     return forecastPoints;
@@ -210,45 +170,7 @@ export default function BIDashboard() {
       };
     }
 
-    // Fallback: Calculate metrics using linear regression on historical data
-    if (!state.selectedLob?.mockData || forecastData.length === 0) return null;
-
-    const data = state.selectedLob.mockData.filter(d => !d.Forecast); // Only historical
-    const values = data.map(d => d.Value);
-
-    const n = values.length;
-    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-
-    for (let i = 0; i < n; i++) {
-      sumX += i;
-      sumY += values[i];
-      sumXY += i * values[i];
-      sumX2 += i * i;
-    }
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-
-    const predictions = values.map((_, i) => slope * i + intercept);
-    const residuals = values.map((v, i) => v - predictions[i]);
-    const meanValue = sumY / n;
-
-    const ssRes = residuals.reduce((sum, r) => sum + r * r, 0);
-    const ssTot = values.reduce((sum, v) => sum + Math.pow(v - meanValue, 2), 0);
-    const r2 = 1 - (ssRes / ssTot);
-
-    const mae = residuals.reduce((sum, r) => sum + Math.abs(r), 0) / n;
-    const rmse = Math.sqrt(ssRes / n);
-    const mape = residuals.reduce((sum, r, i) => sum + Math.abs(r / values[i]), 0) / n * 100;
-
-    return {
-      mape: mape.toFixed(1),
-      rmse: rmse.toFixed(0),
-      r2: r2.toFixed(3),
-      mae: mae.toFixed(0),
-      model: 'Linear Regression',
-      confidence: Math.min(95, Math.max(70, (r2 * 100))).toFixed(0)
-    };
+    return null;
   }, [forecastData]);
 
   if (!state.selectedLob?.hasData) {
