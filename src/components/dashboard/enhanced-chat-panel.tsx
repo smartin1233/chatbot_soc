@@ -686,8 +686,8 @@ class EnhancedMultiAgentChatHandler {
         }
 
         // If this is the forecasting agent, generate and attach forecast data
-        if (agentKey === 'forecasting' && context.selectedLob?.mockData) {
-          const historicalData = context.selectedLob.mockData;
+        if (agentKey === 'forecasting' && context.selectedLob?.timeSeriesData) {
+          const historicalData = context.selectedLob.timeSeriesData;
           const lastDate = new Date(historicalData[historicalData.length - 1].Date);
           const forecastPoints: any[] = [];
 
@@ -784,7 +784,7 @@ class EnhancedMultiAgentChatHandler {
           // Store updated data for visualization
           updatedLobData = {
             ...context.selectedLob,
-            mockData: combinedData,
+            timeSeriesData: combinedData,
             forecastMetrics: forecastMetrics
           };
         }
@@ -931,12 +931,12 @@ class EnhancedMultiAgentChatHandler {
     let visualizationData = null;
     const lobToUse = updatedLobData || context.selectedLob;
 
-    if (lobToUse?.mockData) {
-      const hasForecast = lobToUse.mockData.some((d: any) => d.Forecast !== undefined && d.Forecast > 0);
+    if (lobToUse?.timeSeriesData) {
+      const hasForecast = lobToUse.timeSeriesData.some((d: any) => d.Forecast !== undefined && d.Forecast > 0);
       const hasOutliers = agents.includes('eda') || agents.includes('preprocessing');
 
       visualizationData = {
-        data: lobToUse.mockData,
+        data: lobToUse.timeSeriesData,
         target: 'Value' as 'Value' | 'Orders',
         isShowing: false,
         showOutliers: hasOutliers
@@ -944,8 +944,8 @@ class EnhancedMultiAgentChatHandler {
 
       // Log for debugging
       console.log('Visualization data prepared:', {
-        totalPoints: lobToUse.mockData.length,
-        forecastPoints: lobToUse.mockData.filter((d: any) => d.Forecast && d.Forecast > 0).length,
+        totalPoints: lobToUse.timeSeriesData.length,
+        forecastPoints: lobToUse.timeSeriesData.filter((d: any) => d.Forecast && d.Forecast > 0).length,
         hasForecast,
         hasOutliers,
         agents: agents

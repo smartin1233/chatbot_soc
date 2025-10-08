@@ -866,7 +866,7 @@ export default function ChatPanel({ className }: { className?: string }) {
       }
       
       // Auto-detect visualization needs
-      const shouldVisualize = state.selectedLob?.hasData && state.selectedLob?.mockData && 
+      const shouldVisualize = state.selectedLob?.hasData && state.selectedLob?.timeSeriesData &&
         (/(visuali[sz]e|chart|plot|graph|trend|distribution)/i.test(messageText + content) ||
          (agentType === 'eda' && /pattern|trend|seasonality/i.test(content)));
 
@@ -874,7 +874,7 @@ export default function ChatPanel({ className }: { className?: string }) {
       if (shouldVisualize) {
         const isRevenue = /(revenue|sales|amount|gmv|income)/i.test(messageText + content);
         visualization = {
-          data: state.selectedLob!.mockData!,
+          data: state.selectedLob!.timeSeriesData!,
           target: isRevenue ? 'Value' : 'Orders',
           isShowing: false,
         };
@@ -883,7 +883,7 @@ export default function ChatPanel({ className }: { className?: string }) {
       // Track analysis completion and extract data
       if (agentType === 'eda') {
         // Extract outliers from EDA response
-        const outliers = extractOutliersFromResponse(responseText, state.selectedLob?.mockData);
+        const outliers = extractOutliersFromResponse(responseText, state.selectedLob?.timeSeriesData);
         dispatch({ 
           type: 'SET_ANALYZED_DATA', 
           payload: { 
@@ -894,7 +894,7 @@ export default function ChatPanel({ className }: { className?: string }) {
         });
       } else if (agentType === 'forecasting') {
         // Extract forecast data from forecasting response
-        const forecastData = extractForecastDataFromResponse(responseText, state.selectedLob?.mockData);
+        const forecastData = extractForecastDataFromResponse(responseText, state.selectedLob?.timeSeriesData);
         dispatch({ 
           type: 'SET_ANALYZED_DATA', 
           payload: { 

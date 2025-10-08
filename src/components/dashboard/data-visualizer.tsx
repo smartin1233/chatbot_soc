@@ -88,7 +88,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
   // Process data: detect CRITICAL outliers only, format dates, separate actual vs forecast
   const processedData = useMemo(() => {
     // Calculate CRITICAL outliers using stricter IQR method (3.0 instead of 1.5)
-    const values = data.map(d => d.Value).filter(v => v !== undefined && v !== null && v > 0);
+    const values = data.map(d => d.Value).filter(v => v !== undefined && v !== null);
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = sorted[Math.floor(sorted.length * 0.25)];
     const q3 = sorted[Math.floor(sorted.length * 0.75)];
@@ -96,20 +96,23 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
     const lowerBound = q1 - 3.0 * iqr; // Critical outliers only (3.0 instead of 1.5)
     const upperBound = q3 + 3.0 * iqr;
 
-    return data.map(item => ({
-      ...item,
-      Value: item.Forecast !== undefined && item.Forecast > 0 ? null : item.Value,
-      formattedDate: format(new Date(item.Date), 'dd-MM-yyyy'),
-      dateString: format(new Date(item.Date), 'MMM d, yyyy'),
-      isCriticalOutlier: item.Value < lowerBound || item.Value > upperBound,
-      timestamp: new Date(item.Date).getTime()
-    })).sort((a, b) => a.timestamp - b.timestamp);
+    return data.map(item => {
+      const isForecast = item.Forecast !== undefined && item.Forecast !== null;
+      return {
+        ...item,
+        Value: isForecast ? null : item.Value,
+        Forecast: isForecast ? item.Forecast : null,
+        ForecastUpper: isForecast ? item.ForecastUpper : null,
+        ForecastLower: isForecast ? item.ForecastLower : null,
+        formattedDate: format(new Date(item.Date), 'dd-MM-yyyy'),
+        dateString: format(new Date(item.Date), 'MMM d, yyyy'),
+        isCriticalOutlier: !isForecast && (item.Value < lowerBound || item.Value > upperBound),
+        timestamp: new Date(item.Date).getTime()
+      }
+    }).sort((a, b) => a.timestamp - b.timestamp);
   }, [data]);
 
-  // Separate actual and forecast data
-  const actualData = processedData.filter(d => d.Forecast === undefined);
-  const forecastData = processedData.filter(d => d.Forecast !== undefined);
-  const hasForecast = forecastData.length > 0;
+  const hasForecast = processedData.some(d => d.Forecast !== null && d.Forecast !== undefined);
   const hasOrders = processedData.some(d => d.Orders && d.Orders > 0);
 
   // Get CRITICAL outliers only (for red dots) - only in actual data
@@ -160,7 +163,6 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
               {chartType === 'line' ? (
                 <Line
                   type="monotone"
-                  data={actualData}
                   dataKey={dataKey}
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
@@ -170,7 +172,6 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                 />
               ) : (
                 <Bar
-                  data={actualData}
                   dataKey={dataKey}
                   fill="hsl(var(--primary))"
                   name="Actual"
@@ -182,7 +183,6 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                 <>
                   <Line
                     type="monotone"
-                    data={forecastData}
                     dataKey="Forecast"
                     stroke="#3b82f6"
                     strokeWidth={2}
@@ -194,23 +194,19 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   {/* Confidence Interval */}
                   <Area
                     type="monotone"
-                    data={forecastData}
                     dataKey="ForecastUpper"
                     stroke="none"
                     fill="#3b82f6"
                     fillOpacity={0.1}
-                    name="Confidence Interval"
-                    activeDot={false}
+                    name="Upper Bound"
                   />
                   <Area
                     type="monotone"
-                    data={forecastData}
                     dataKey="ForecastLower"
                     stroke="none"
-                    fill="hsl(var(--background))"
-                    fillOpacity={1.0}
-                    name=""
-                    activeDot={false}
+                    fill="#3b82f6"
+                    fillOpacity={0.1}
+                    name="Lower Bound"
                   />
                 </>
               )}

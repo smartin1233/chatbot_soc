@@ -46,7 +46,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true,
         dataUploaded: new Date('2024-01-10'),
         recordCount: 1250,
-        mockData: generateWeeklyData(1250, 'premium-phone'),
+        timeSeriesData: generateWeeklyData(1250, 'premium-phone'),
         dataQuality: {
           seasonality: 'strong_weekly',
           trend: 'increasing'
@@ -59,7 +59,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true,
         dataUploaded: new Date('2024-01-10'),
         recordCount: 890,
-        mockData: generateWeeklyData(890, 'premium-chat'),
+        timeSeriesData: generateWeeklyData(890, 'premium-chat'),
         dataQuality: {
           seasonality: 'moderate_weekly',
           trend: 'stable'
@@ -80,7 +80,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true,
         dataUploaded: new Date('2024-01-08'),
         recordCount: 3450,
-        mockData: generateWeeklyData(3450, 'mass-phone'),
+        timeSeriesData: generateWeeklyData(3450, 'mass-phone'),
         dataQuality: {
           seasonality: 'strong_weekly_monthly',
           trend: 'increasing'
@@ -93,7 +93,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true,
         dataUploaded: new Date('2024-01-08'),
         recordCount: 2100,
-        mockData: generateWeeklyData(2100, 'mass-chat'),
+        timeSeriesData: generateWeeklyData(2100, 'mass-chat'),
         dataQuality: {
           seasonality: 'moderate_weekly',
           trend: 'stable'
@@ -114,7 +114,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true, // NOW HAS MOCK DATA
         dataUploaded: new Date('2024-01-12'),
         recordCount: 2800,
-        mockData: generateWeeklyData(2800, 'ecom-phone'),
+        timeSeriesData: generateWeeklyData(2800, 'ecom-phone'),
         dataQuality: {
           seasonality: 'strong_weekly_seasonal',
           trend: 'increasing'
@@ -127,7 +127,7 @@ export const mockBusinessUnits: BusinessUnit[] = [
         hasData: true, // NOW HAS MOCK DATA
         dataUploaded: new Date('2024-01-12'),
         recordCount: 1950,
-        mockData: generateWeeklyData(1950, 'ecom-chat'),
+        timeSeriesData: generateWeeklyData(1950, 'ecom-chat'),
         dataQuality: {
           seasonality: 'strong_weekly_seasonal',
           trend: 'increasing'

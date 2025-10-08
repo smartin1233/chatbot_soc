@@ -53,9 +53,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
 
   // Enhanced data processing with date filtering
   const filteredData = useMemo(() => {
-    if (!state.selectedLob?.mockData) return null;
+    if (!state.selectedLob?.timeSeriesData) return null;
     
-    let data = state.selectedLob.mockData;
+    let data = state.selectedLob.timeSeriesData;
     
     // Apply date range filter
     if (state.dateRange) {
@@ -66,7 +66,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
     }
     
     return data;
-  }, [state.selectedLob?.mockData, state.dateRange]);
+  }, [state.selectedLob?.timeSeriesData, state.dateRange]);
 
   const enhancedMetrics = useMemo(() => {
     if (!filteredData || !state.analyzedData.hasEDA) return null;
@@ -120,18 +120,18 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         trend: 'stable' as const
       }
     };
-  }, [state.selectedLob?.mockData]);
+  }, [state.selectedLob?.timeSeriesData]);
 
   // Generate real insights from actual LOB data
   const generateRealInsights = async () => {
-    if (!state.selectedLob?.mockData) {
+    if (!state.selectedLob?.timeSeriesData) {
       setDynamicInsights([]);
       return;
     }
 
     try {
       const insights: DynamicInsight[] = [];
-      const data = state.selectedLob.mockData;
+      const data = state.selectedLob.timeSeriesData;
       const forecastMetrics = state.selectedLob.forecastMetrics;
 
       // Calculate real statistics from data
@@ -230,12 +230,12 @@ export default function EnhancedDataPanel({ className }: { className?: string })
 
   // Advanced analytics processing using real data
   const performAdvancedAnalytics = async () => {
-    if (!state.selectedLob?.mockData) return;
+    if (!state.selectedLob?.timeSeriesData) return;
 
     setIsAnalyzing(true);
 
     try {
-      const dataPoints: DataPoint[] = state.selectedLob.mockData.map(item => ({
+      const dataPoints: DataPoint[] = state.selectedLob.timeSeriesData.map(item => ({
         date: new Date(item.Date),
         value: item.Value,
         orders: item.Orders

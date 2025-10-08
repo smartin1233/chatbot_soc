@@ -46,9 +46,9 @@ export default function BIDashboard() {
 
   // Generate KPIs and metrics based on dashboard config
   const kpis = useMemo(() => {
-    if (!state.selectedLob?.mockData || !dashboardConfig.showBusinessMetrics) return [];
+    if (!state.selectedLob?.timeSeriesData || !dashboardConfig.showBusinessMetrics) return [];
 
-    const data = state.selectedLob.mockData;
+    const data = state.selectedLob.timeSeriesData;
     const currentValue = data[data.length - 1]?.Value || 0;
     const previousValue = data[data.length - 2]?.Value || 0;
     const change = ((currentValue - previousValue) / previousValue) * 100;
@@ -118,9 +118,9 @@ export default function BIDashboard() {
 
   // Generate forecast data with confidence intervals
   const forecastData = useMemo(() => {
-    if (!state.selectedLob?.mockData) return [];
+    if (!state.selectedLob?.timeSeriesData) return [];
 
-    const allData = state.selectedLob.mockData;
+    const allData = state.selectedLob.timeSeriesData;
     const forecastPoints: ForecastData[] = [];
 
     // Separate historical and forecast data
@@ -171,7 +171,7 @@ export default function BIDashboard() {
     }
 
     return null;
-  }, [forecastData]);
+  }, [state.selectedLob?.forecastMetrics]);
 
   if (!state.selectedLob?.hasData) {
     return (

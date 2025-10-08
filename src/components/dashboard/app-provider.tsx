@@ -443,7 +443,7 @@ function appReducer(state: AppState, action: Action): AppState {
             lob.id === action.payload.lobId
               ? {
                   ...lob,
-                  mockData: action.payload.forecastData,
+                  timeSeriesData: action.payload.forecastData,
                   forecastMetrics: action.payload.forecastMetrics
                 }
               : lob
@@ -452,7 +452,7 @@ function appReducer(state: AppState, action: Action): AppState {
         selectedLob: state.selectedLob?.id === action.payload.lobId
           ? {
               ...state.selectedLob,
-              mockData: action.payload.forecastData,
+              timeSeriesData: action.payload.forecastData,
               forecastMetrics: action.payload.forecastMetrics
             }
           : state.selectedLob

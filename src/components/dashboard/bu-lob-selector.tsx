@@ -674,20 +674,20 @@ export default function BuLobSelector({
         dispatch({ type: 'SET_SELECTED_LOB', payload: lob });
 
         // Show data preview with actual data
-        if (lob.hasData && lob.mockData && lob.mockData.length > 0) {
+        if (lob.hasData && lob.timeSeriesData && lob.timeSeriesData.length > 0) {
             // Get first 10 and last 10 records for preview
             const previewData = [
-                ...lob.mockData.slice(0, 10),
-                ...(lob.mockData.length > 20 ? lob.mockData.slice(-10) : [])
+                ...lob.timeSeriesData.slice(0, 10),
+                ...(lob.timeSeriesData.length > 20 ? lob.timeSeriesData.slice(-10) : [])
             ];
 
             // Format date range
-            const firstDate = lob.mockData[0].Date;
-            const lastDate = lob.mockData[lob.mockData.length - 1].Date;
+            const firstDate = lob.timeSeriesData[0].Date;
+            const lastDate = lob.timeSeriesData[lob.timeSeriesData.length - 1].Date;
             const dateRange = `${new Date(firstDate).toLocaleDateString()} to ${new Date(lastDate).toLocaleDateString()}`;
 
             // Calculate statistics
-            const values = lob.mockData.map(d => d.Value);
+            const values = lob.timeSeriesData.map(d => d.Value);
             const avgValue = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
             const minValue = Math.min(...values).toFixed(2);
             const maxValue = Math.max(...values).toFixed(2);
@@ -729,7 +729,7 @@ Your data is loaded and ready for analysis!`;
                     role: 'assistant',
                     content,
                     visualization: {
-                        data: lob.mockData,
+                        data: lob.timeSeriesData,
                         target: 'Value',
                         isShowing: true
                     },

@@ -58,7 +58,7 @@ export type LineOfBusiness = {
   hasData: boolean;
   dataUploaded: Date | null;
   recordCount: number;
-  mockData?: WeeklyData[]; // Includes historical + forecast data
+  timeSeriesData?: WeeklyData[]; // Includes historical + forecast data
   dataQuality?: DataQuality;
   forecastMetrics?: ForecastMetrics; // Model performance after forecasting
   file?: File;

@@ -14,7 +14,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 export default function DataPanel({ className }: { className?: string }) {
   const { state, dispatch } = useApp();
 
-  const vizData = useMemo(() => state.selectedLob?.mockData ?? null, [state.selectedLob]);
+  const vizData = useMemo(() => state.selectedLob?.timeSeriesData ?? null, [state.selectedLob]);
   const totalValue = useMemo(() => vizData?.reduce((sum, row) => sum + ((row as any).Value ?? 0), 0) ?? 0, [vizData]);
   const totalOrders = useMemo(() => vizData?.reduce((sum, row) => sum + ((row as any).Orders ?? 0), 0) ?? 0, [vizData]);
   const avgValue = vizData && vizData.length > 0 ? totalValue / vizData.length : 0;

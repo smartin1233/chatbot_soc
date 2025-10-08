@@ -267,7 +267,7 @@ export class ZentereAPIClient {
         hasData: lobData.records.length > 0,
         dataUploaded: lobData.records.length > 0 ? now : null,
         recordCount: lobData.records.length,
-        mockData: lobData.records.map(r => ({
+        timeSeriesData: lobData.records.map(r => ({
           Date: r.date,
           Value: r.value,
           Orders: 0, // Not available in current data
