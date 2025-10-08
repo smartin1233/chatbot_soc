@@ -644,7 +644,21 @@ class EnhancedMultiAgentChatHandler {
           cleanedResponse = cleanedResponse.replace(/^\s*[\{\}]\s*$/gm, '');
           cleanedResponse = cleanedResponse.trim();
 
-          / aggregatedInsights[agentKey] = {};
+          // Extract one-line summary (first meaningful sentence)
+          const lines = cleanedResponse.split('\n').filter(line => {
+            const trimmed = line.trim();
+            return trimmed && 
+                   !trimmed.includes('##') && 
+                   !trimmed.includes('[REPORT_DATA]') &&
+                   !trimmed.includes('"title"') &&
+                   !trimmed.startsWith('{') &&
+                   !trimmed.startsWith('}');
+          });
+          const oneLiner = lines[0] || `Completed ${agent.specialty}`;
+
+          // Initialize or update aggregatedInsights for this agent
+          if (!aggregatedInsights[agentKey]) {
+            aggregatedInsights[agentKey] = {};
           }
           aggregatedInsights[agentKey].summary = oneLiner;
           aggregatedInsights[agentKey].fullResponse = cleanedResponse;
