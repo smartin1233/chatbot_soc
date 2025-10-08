@@ -88,7 +88,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
   // Process data: detect CRITICAL outliers only, format dates, separate actual vs forecast
   const processedData = useMemo(() => {
     // Calculate CRITICAL outliers using stricter IQR method (3.0 instead of 1.5)
-    const values = data.map(d => d.Value).filter(v => v !== undefined && v !== null);
+    const values = data.map(d => d.Value).filter(v => v !== undefined && v !== null && v > 0);
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = sorted[Math.floor(sorted.length * 0.25)];
     const q3 = sorted[Math.floor(sorted.length * 0.75)];
@@ -98,6 +98,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
 
     return data.map(item => ({
       ...item,
+      Value: item.Forecast !== undefined && item.Forecast > 0 ? null : item.Value,
       formattedDate: format(new Date(item.Date), 'dd-MM-yyyy'),
       dateString: format(new Date(item.Date), 'MMM d, yyyy'),
       isCriticalOutlier: item.Value < lowerBound || item.Value > upperBound,
