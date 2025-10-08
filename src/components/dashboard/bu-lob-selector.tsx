@@ -14,7 +14,7 @@ import {
     DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Folder, PlusCircle, UploadCloud, CheckCircle, FileWarning, Plug, Check, Eye } from 'lucide-react';
+import { ChevronDown, Folder, PlusCircle, UploadCloud, CheckCircle, FileWarning, Plug, Check, Eye, Sparkles, RefreshCw } from 'lucide-react';
 import { useApp } from './app-provider';
 import type { BusinessUnit, LineOfBusiness, BUCreationData, LOBCreationData } from '@/lib/types';
 import { agentResponseGenerator } from '@/lib/agent-response-generator';
@@ -35,7 +35,55 @@ function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: 
     });
     const [errors, setErrors] = useState<Partial<Record<keyof BUCreationData, string>>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAutoFilling, setIsAutoFilling] = useState(false);
     const { dispatch } = useApp();
+
+    // AI-powered auto-fill for missing fields
+    const handleAutoFill = async () => {
+        if (!formData.name.trim()) {
+            alert('Please enter a Business Unit name first');
+            return;
+        }
+
+        setIsAutoFilling(true);
+        try {
+            // Generate intelligent defaults based on the name
+            const name = formData.name.trim();
+            
+            // Auto-generate code from name
+            const autoCode = name.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+            
+            // Auto-generate display name (title case)
+            const autoDisplayName = name.split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+            
+            // Auto-generate description using AI-like logic
+            const autoDescription = `Business Unit for ${name} operations and management. Handles forecasting, data analysis, and reporting for ${name} activities.`;
+
+            // Update form with auto-generated values (only if empty)
+            setFormData(prev => ({
+                ...prev,
+                code: prev.code.trim() ? prev.code : autoCode,
+                displayName: prev.displayName.trim() ? prev.displayName : autoDisplayName,
+                description: prev.description.trim() ? prev.description : autoDescription,
+            }));
+
+            // Show success message
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: `🤖 **AI Auto-Fill Complete!**\n\nI've generated the following fields for "${name}":\n• **Code:** ${autoCode}\n• **Display Name:** ${autoDisplayName}\n• **Description:** ${autoDescription}\n\nYou can edit these before creating the Business Unit.`,
+                }
+            });
+        } catch (error) {
+            console.error('Auto-fill error:', error);
+        } finally {
+            setIsAutoFilling(false);
+        }
+    };
 
     const validateForm = (): boolean => {
         const newErrors: Partial<Record<keyof BUCreationData, string>> = {};
@@ -92,16 +140,42 @@ function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: 
 
         setIsSubmitting(true);
         try {
-            dispatch({ type: 'ADD_BU', payload: enhancedFormData });
+            // Import API client
+            const { getAPIClient } = await import('@/lib/api-client');
+            const apiClient = getAPIClient();
 
-            // Show what information was stored
+            // Re-authenticate to ensure token is valid
+            const username = typeof window !== 'undefined' 
+                ? localStorage.getItem('zentere_username') || 'martin@demo.com'
+                : 'martin@demo.com';
+            const password = typeof window !== 'undefined'
+                ? localStorage.getItem('zentere_password') || 'demo'
+                : 'demo';
+            
+            await apiClient.authenticate(username, password);
+
+            // Create BU in backend
+            const buId = await apiClient.createBusinessUnit({
+                name: enhancedFormData.name,
+                display_name: enhancedFormData.displayName,
+                code: enhancedFormData.code,
+                start_date: enhancedFormData.startDate.toISOString().split('T')[0],
+                description: enhancedFormData.description,
+            });
+
+            console.log('✅ Created BU with ID:', buId);
+
+            // Add to local state with the real ID
+            dispatch({ type: 'ADD_BU', payload: { ...enhancedFormData, id: buId.toString() } });
+
+            // Show success message
             dispatch({
                 type: 'ADD_MESSAGE',
                 payload: {
                     id: crypto.randomUUID(),
                     role: 'assistant',
-                    content: `✅ **Business Unit Created Successfully!**\n\n**Stored Information:**\n• **Name:** ${enhancedFormData.name}\n• **Display Name:** ${enhancedFormData.displayName}\n• **Code:** ${enhancedFormData.code}\n• **Description:** ${enhancedFormData.description}\n• **Start Date:** ${enhancedFormData.startDate.toLocaleDateString()}\n\n${enhancedFormData.code !== formData.code ? '🤖 *Code was auto-generated*\n' : ''}${enhancedFormData.description !== formData.description ? '🤖 *Description was auto-generated*\n' : ''}${enhancedFormData.displayName !== formData.displayName ? '🤖 *Display name was auto-generated*\n' : ''}\nYou can edit these details anytime if needed.`,
-                    suggestions: ['Create Line of Business', 'Edit Business Unit', 'Upload Data']
+                    content: `✅ **Business Unit Created Successfully!**\n\n**Stored Information:**\n• **ID:** ${buId}\n• **Name:** ${enhancedFormData.name}\n• **Display Name:** ${enhancedFormData.displayName}\n• **Code:** ${enhancedFormData.code}\n• **Description:** ${enhancedFormData.description}\n• **Start Date:** ${enhancedFormData.startDate.toLocaleDateString()}\n\n${enhancedFormData.code !== formData.code ? '🤖 *Code was auto-generated*\n' : ''}${enhancedFormData.description !== formData.description ? '🤖 *Description was auto-generated*\n' : ''}${enhancedFormData.displayName !== formData.displayName ? '🤖 *Display name was auto-generated*\n' : ''}\n✅ **Saved to backend database!**`,
+                    suggestions: ['Create Line of Business', 'View Business Units', 'Upload Data']
                 }
             });
 
@@ -117,6 +191,15 @@ function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: 
             setErrors({});
         } catch (error) {
             console.error('Failed to create Business Unit:', error);
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: `❌ **Failed to create Business Unit**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or contact support.`,
+                    suggestions: ['Try again', 'Check connection', 'Contact support']
+                }
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -135,11 +218,14 @@ function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: 
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Create New Business Unit</DialogTitle>
+                    <p className="text-sm text-muted-foreground">
+                        💡 Tip: Just enter a name and click "AI Auto-Fill" to generate other fields automatically
+                    </p>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="name" className="text-right">Name *</Label>
-                        <div className="col-span-3">
+                        <div className="col-span-3 space-y-2">
                             <Input
                                 id="name"
                                 value={formData.name}
@@ -148,6 +234,28 @@ function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: 
                                 placeholder="Enter business unit name"
                             />
                             {errors.name && <p className="text-sm text-red-500 mt-1">{errors.name}</p>}
+                            {formData.name.trim() && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAutoFill}
+                                    disabled={isAutoFilling || isSubmitting}
+                                    className="w-full mt-2"
+                                >
+                                    {isAutoFilling ? (
+                                        <>
+                                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="h-3 w-3 mr-1" />
+                                            AI Auto-Fill Other Fields
+                                        </>
+                                    )}
+                                </Button>
+                            )}
                         </div>
                     </div>
 
@@ -230,6 +338,47 @@ function AddLobDialog({ isOpen, onOpenChange, buId }: { isOpen: boolean, onOpenC
     });
     const [errors, setErrors] = useState<Partial<Record<keyof LOBCreationData, string>>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAutoFilling, setIsAutoFilling] = useState(false);
+
+    // AI-powered auto-fill for missing fields
+    const handleAutoFill = async () => {
+        if (!formData.name.trim()) {
+            alert('Please enter a Line of Business name first');
+            return;
+        }
+
+        setIsAutoFilling(true);
+        try {
+            const name = formData.name.trim();
+            
+            // Auto-generate code from name
+            const autoCode = name.toUpperCase().replace(/\s+/g, '_').replace(/[^A-Z0-9_]/g, '');
+            
+            // Auto-generate description
+            const autoDescription = `Line of Business for ${name} operations and forecasting. Manages data collection, analysis, and predictions for ${name} activities.`;
+
+            // Update form with auto-generated values (only if empty)
+            setFormData(prev => ({
+                ...prev,
+                code: prev.code.trim() ? prev.code : autoCode,
+                description: prev.description.trim() ? prev.description : autoDescription,
+            }));
+
+            // Show success message
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: `🤖 **AI Auto-Fill Complete!**\n\nI've generated the following fields for "${name}":\n• **Code:** ${autoCode}\n• **Description:** ${autoDescription}\n\nYou can edit these before creating the Line of Business.`,
+                }
+            });
+        } catch (error) {
+            console.error('Auto-fill error:', error);
+        } finally {
+            setIsAutoFilling(false);
+        }
+    };
     const { state, dispatch } = useApp();
 
     // Update businessUnitId when buId prop changes
@@ -295,18 +444,44 @@ function AddLobDialog({ isOpen, onOpenChange, buId }: { isOpen: boolean, onOpenC
 
         setIsSubmitting(true);
         try {
-            dispatch({ type: 'ADD_LOB', payload: enhancedFormData });
+            // Import API client
+            const { getAPIClient } = await import('@/lib/api-client');
+            const apiClient = getAPIClient();
+
+            // Re-authenticate to ensure token is valid
+            const username = typeof window !== 'undefined' 
+                ? localStorage.getItem('zentere_username') || 'martin@demo.com'
+                : 'martin@demo.com';
+            const password = typeof window !== 'undefined'
+                ? localStorage.getItem('zentere_password') || 'demo'
+                : 'demo';
+            
+            await apiClient.authenticate(username, password);
 
             const selectedBU = state.businessUnits.find(bu => bu.id === enhancedFormData.businessUnitId);
 
-            // Show what information was stored
+            // Create LOB in backend
+            const lobId = await apiClient.createLOB({
+                name: enhancedFormData.name,
+                code: enhancedFormData.code,
+                business_unit_id: parseInt(enhancedFormData.businessUnitId),
+                start_date: enhancedFormData.startDate.toISOString().split('T')[0],
+                description: enhancedFormData.description,
+            });
+
+            console.log('✅ Created LOB with ID:', lobId);
+
+            // Add to local state with the real ID
+            dispatch({ type: 'ADD_LOB', payload: { ...enhancedFormData, id: lobId.toString() } });
+
+            // Show success message
             dispatch({
                 type: 'ADD_MESSAGE',
                 payload: {
                     id: crypto.randomUUID(),
                     role: 'assistant',
-                    content: `✅ **Line of Business Created Successfully!**\n\n**Stored Information:**\n• **Name:** ${enhancedFormData.name}\n• **Code:** ${enhancedFormData.code}\n• **Description:** ${enhancedFormData.description}\n• **Business Unit:** ${selectedBU?.name || 'Unknown'}\n• **Start Date:** ${enhancedFormData.startDate.toLocaleDateString()}\n\n${enhancedFormData.code !== formData.code ? '🤖 *Code was auto-generated*\n' : ''}${enhancedFormData.description !== formData.description ? '🤖 *Description was auto-generated*\n' : ''}\nYou can edit these details anytime if needed.`,
-                    suggestions: ['Upload Data to LOB', 'Create Another LOB', 'Edit LOB Details']
+                    content: `✅ **Line of Business Created Successfully!**\n\n**Stored Information:**\n• **ID:** ${lobId}\n• **Name:** ${enhancedFormData.name}\n• **Code:** ${enhancedFormData.code}\n• **Description:** ${enhancedFormData.description}\n• **Business Unit:** ${selectedBU?.name || 'Unknown'}\n• **Start Date:** ${enhancedFormData.startDate.toLocaleDateString()}\n\n${enhancedFormData.code !== formData.code ? '🤖 *Code was auto-generated*\n' : ''}${enhancedFormData.description !== formData.description ? '🤖 *Description was auto-generated*\n' : ''}\n✅ **Saved to backend database!**`,
+                    suggestions: ['Upload Data to LOB', 'Create Another LOB', 'View LOBs']
                 }
             });
 
@@ -322,6 +497,15 @@ function AddLobDialog({ isOpen, onOpenChange, buId }: { isOpen: boolean, onOpenC
             setErrors({});
         } catch (error) {
             console.error('Failed to create Line of Business:', error);
+            dispatch({
+                type: 'ADD_MESSAGE',
+                payload: {
+                    id: crypto.randomUUID(),
+                    role: 'assistant',
+                    content: `❌ **Failed to create Line of Business**\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or contact support.`,
+                    suggestions: ['Try again', 'Check connection', 'Contact support']
+                }
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -342,6 +526,9 @@ function AddLobDialog({ isOpen, onOpenChange, buId }: { isOpen: boolean, onOpenC
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>Create New Line of Business</DialogTitle>
+                    <p className="text-sm text-muted-foreground">
+                        💡 Tip: Just enter a name and click "AI Auto-Fill" to generate other fields
+                    </p>
                     {selectedBU && (
                         <p className="text-sm text-muted-foreground">
                             Adding to Business Unit: <strong>{selectedBU.name}</strong>
@@ -427,7 +614,10 @@ export default function BuLobSelector({
     triggerLabel,
 }: { compact?: boolean; className?: string; variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'link' | 'destructive'; size?: 'sm' | 'default' | 'lg' | 'icon'; triggerLabel?: string; }) {
     const { state, dispatch } = useApp();
-    const { businessUnits, selectedBu, selectedLob } = state;
+    const { businessUnits, selectedBu, selectedLob, isProcessing } = state;
+    
+    // Check if data is still loading
+    const isLoading = isProcessing && businessUnits.length === 0;
     
     // Debug: Log business units when they change
     React.useEffect(() => {
@@ -928,11 +1118,11 @@ Your data is loaded and ready for analysis!`;
         <>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant={variant as any} size={size as any} className={className ?? 'text-black dark:text-white hover:bg-muted/20 flex items-center gap-2'}>
+                    <Button variant={variant as any} size={size as any} className={className ?? 'text-black dark:text-white hover:bg-muted/20 flex items-center gap-2'} disabled={isLoading}>
                         {compact ? (
                             <>
-                                <Plug className="h-4 w-4" />
-                                <span>{selectedBu && selectedLob ? `${selectedBu.name} - ${selectedLob.name}` : (triggerLabel ?? 'Select BU/LoB')}</span>
+                                {isLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                                <span>{isLoading ? 'Loading...' : (selectedBu && selectedLob ? `${selectedBu.name} - ${selectedLob.name}` : (triggerLabel ?? 'Select BU/LoB'))}</span>
                                 <span
                                     role="button"
                                     tabIndex={selectedLob ? 0 : -1}
@@ -949,8 +1139,9 @@ Your data is loaded and ready for analysis!`;
                             </>
                         ) : (
                             <>
+                                {isLoading && <RefreshCw className="h-4 w-4 animate-spin" />}
                                 <span>
-                                    {selectedBu && selectedLob ? `${selectedBu.name} - ${selectedLob.name}` : (selectedBu ? selectedBu.name : 'Select a Business Unit')}
+                                    {isLoading ? 'Loading Business Units...' : (selectedBu && selectedLob ? `${selectedBu.name} - ${selectedLob.name}` : (selectedBu ? selectedBu.name : 'Select a Business Unit'))}
                                 </span>
                                 <span
                                     role="button"

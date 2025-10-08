@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Bot, Paperclip, Send, User, BarChart, CheckCircle, FileText } from 'lucide-react';
 import { useApp } from './app-provider';
-import type { ChatMessage, WeeklyData, WorkflowStep } from '@/lib/types';
+import type { ChatMessage, WeeklyData, WorkflowStep, OutlierData, ForecastData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AgentMonitorPanel from './agent-monitor';
 import DataVisualizer from './data-visualizer';
@@ -444,6 +444,110 @@ Remember: You're ${agent.specialty} - use your expertise to help them succeed!`;
 
 let chatHandler: MultiAgentChatHandler | null = null;
 
+// Helper function to extract outliers from EDA response
+function extractOutliersFromResponse(responseText: string, data?: WeeklyData[]): OutlierData[] {
+  const outliers: OutlierData[] = [];
+  
+  if (!data || data.length === 0) return outliers;
+  
+  // Look for outlier mentions in the response
+  // Pattern 1: "X outliers found" or "X unusual values"
+  const outlierCountMatch = responseText.match(/(\d+)\s+(?:outliers?|unusual values?)/i);
+  
+  if (outlierCountMatch) {
+    const count = parseInt(outlierCountMatch[1]);
+    
+    // If outliers are mentioned, identify them from the data
+    // Use statistical method: values beyond 2 standard deviations
+    const values = data.map(d => d.Value);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const stdDev = Math.sqrt(
+      values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length
+    );
+    
+    data.forEach((point, index) => {
+      const zScore = Math.abs((point.Value - mean) / stdDev);
+      if (zScore > 2) {
+        const severity: 'high' | 'medium' | 'low' = 
+          zScore > 3 ? 'high' : zScore > 2.5 ? 'medium' : 'low';
+        
+        outliers.push({
+          index,
+          value: point.Value,
+          date: point.Date,
+          reason: `Value is ${zScore.toFixed(1)} standard deviations ${point.Value > mean ? 'above' : 'below'} mean`,
+          severity
+        });
+      }
+    });
+    
+    // Limit to the count mentioned in response
+    return outliers.slice(0, count);
+  }
+  
+  return outliers;
+}
+
+// Helper function to extract forecast data from forecasting response
+function extractForecastDataFromResponse(responseText: string, data?: WeeklyData[]): ForecastData[] {
+  const forecastData: ForecastData[] = [];
+  
+  if (!data || data.length === 0) return forecastData;
+  
+  // Check if data already contains forecast information
+  const dataWithForecast = data.filter(d => d.Forecast !== undefined);
+  
+  if (dataWithForecast.length > 0) {
+    // Extract forecast data from the WeeklyData
+    dataWithForecast.forEach(point => {
+      if (point.Forecast !== undefined) {
+        forecastData.push({
+          date: point.Date,
+          forecast: point.Forecast,
+          lower: point.ForecastLower ?? point.Forecast * 0.9, // Default to 10% below if not available
+          upper: point.ForecastUpper ?? point.Forecast * 1.1, // Default to 10% above if not available
+          confidence: 0.95 // Default confidence level
+        });
+      }
+    });
+  } else {
+    // Look for forecast period mention in response
+    const forecastPeriodMatch = responseText.match(/(\d+)[-\s]?(?:day|week|month)/i);
+    
+    if (forecastPeriodMatch) {
+      const period = parseInt(forecastPeriodMatch[1]);
+      
+      // Generate simple forecast based on trend (for demonstration)
+      // In production, this would come from the backend
+      const values = data.map(d => d.Value);
+      const lastValue = values[values.length - 1];
+      const avgGrowth = values.length > 1 
+        ? (values[values.length - 1] - values[0]) / values.length 
+        : 0;
+      
+      const lastDate = new Date(data[data.length - 1].Date);
+      
+      for (let i = 1; i <= Math.min(period, 30); i++) {
+        const forecastDate = new Date(lastDate);
+        forecastDate.setDate(forecastDate.getDate() + i * 7); // Weekly forecast
+        
+        const forecastValue = lastValue + (avgGrowth * i);
+        const margin = forecastValue * 0.1; // 10% confidence interval
+        
+        forecastData.push({
+          date: forecastDate,
+          forecast: forecastValue,
+          lower: forecastValue - margin,
+          upper: forecastValue + margin,
+          confidence: 0.95
+        });
+      }
+    }
+  }
+  
+  return forecastData;
+}
+
 // Enhanced Chat Bubble Component
 function ChatBubble({ 
   message, 
@@ -544,6 +648,7 @@ function ChatBubble({
               data={message.visualization.data} 
               target={message.visualization.target as 'Value' | 'Orders'}
               isRealData={true}
+              showOutliers={message.visualization.showOutliers}
             />
           </div>
         )}
@@ -571,7 +676,11 @@ function ChatBubble({
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => onVisualizeClick(message.id)}>
               <BarChart className="mr-2 h-4 w-4 text-foreground" />
-              Visualize Data
+              {message.visualization.data.some((d: any) => d.Forecast !== undefined) 
+                ? 'Visualize Actual & Forecast' 
+                : message.visualization.showOutliers
+                ? 'Visualize Data with Outliers'
+                : 'Visualize Data'}
             </Button>
           </div>
         )}
@@ -613,9 +722,9 @@ export default function ChatPanel({ className }: { className?: string }) {
     }
   }, [state.messages]);
 
-  // Handle queued prompts
+  // Handle queued prompts on mount
   useEffect(() => {
-    if (state.queuedUserPrompt) {
+    if (state.queuedUserPrompt && !state.isProcessing) {
       submitMessage(state.queuedUserPrompt);
       dispatch({ type: 'CLEAR_QUEUED_PROMPT' });
     }
@@ -644,6 +753,12 @@ export default function ChatPanel({ className }: { className?: string }) {
   // Submit message handler
   const submitMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
+    
+    // Prevent duplicate submissions
+    if (state.isProcessing) {
+      console.warn('Request already in progress, ignoring duplicate submission');
+      return;
+    }
     
     dispatch({ type: 'SET_PROCESSING', payload: true });
     dispatch({ type: 'CLEAR_THINKING_STEPS' });
@@ -765,11 +880,29 @@ export default function ChatPanel({ className }: { className?: string }) {
         };
       }
 
-      // Track analysis completion
+      // Track analysis completion and extract data
       if (agentType === 'eda') {
-        dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasEDA: true, lastAnalysisType: 'eda' } });
+        // Extract outliers from EDA response
+        const outliers = extractOutliersFromResponse(responseText, state.selectedLob?.mockData);
+        dispatch({ 
+          type: 'SET_ANALYZED_DATA', 
+          payload: { 
+            hasEDA: true, 
+            lastAnalysisType: 'eda',
+            outliers: outliers
+          } 
+        });
       } else if (agentType === 'forecasting') {
-        dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasForecasting: true, lastAnalysisType: 'forecasting' } });
+        // Extract forecast data from forecasting response
+        const forecastData = extractForecastDataFromResponse(responseText, state.selectedLob?.mockData);
+        dispatch({ 
+          type: 'SET_ANALYZED_DATA', 
+          payload: { 
+            hasForecasting: true, 
+            lastAnalysisType: 'forecasting',
+            forecastData: forecastData
+          } 
+        });
       } else if (agentType === 'comparative' || agentType === 'whatif') {
         dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasInsights: true, lastAnalysisType: agentType } });
       }

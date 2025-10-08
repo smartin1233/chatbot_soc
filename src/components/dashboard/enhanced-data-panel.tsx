@@ -122,19 +122,105 @@ export default function EnhancedDataPanel({ className }: { className?: string })
     };
   }, [state.selectedLob?.mockData]);
 
-  // Generate real AI-driven insights based on actual session data
+  // Generate real insights from actual LOB data
   const generateRealInsights = async () => {
-    try {
-      const sessionData = {
-        businessUnits: state.businessUnits,
-        messages: state.messages,
-        selectedBuId: state.selectedBu?.id || null,
-        selectedLobId: state.selectedLob?.id || null,
-        hasAnalyzedData: state.analyzedData.hasEDA || state.analyzedData.hasInsights,
-        hasForecasting: state.analyzedData.hasForecasting
-      };
+    if (!state.selectedLob?.mockData) {
+      setDynamicInsights([]);
+      return;
+    }
 
-      const insights = await dynamicInsightsAgent.generateSessionInsights(sessionData);
+    try {
+      const insights: DynamicInsight[] = [];
+      const data = state.selectedLob.mockData;
+      const forecastMetrics = state.selectedLob.forecastMetrics;
+
+      // Calculate real statistics from data
+      const values = data.map(d => d.Value);
+      const orders = data.map(d => d.Orders);
+      const totalValue = values.reduce((sum, v) => sum + v, 0);
+      const avgValue = totalValue / values.length;
+      const maxValue = Math.max(...values);
+      const minValue = Math.min(...values);
+
+      // Trend analysis
+      const recentValues = values.slice(-7);
+      const previousValues = values.slice(-14, -7);
+      const recentAvg = recentValues.reduce((sum, v) => sum + v, 0) / recentValues.length;
+      const previousAvg = previousValues.reduce((sum, v) => sum + v, 0) / previousValues.length;
+      const trendChange = ((recentAvg - previousAvg) / previousAvg) * 100;
+
+      // Add trend insight
+      if (Math.abs(trendChange) > 5) {
+        insights.push({
+          id: 'trend-analysis',
+          title: trendChange > 0 ? 'Positive Growth Trend' : 'Declining Trend',
+          description: `Recent 7-day average shows ${Math.abs(trendChange).toFixed(1)}% ${trendChange > 0 ? 'increase' : 'decrease'} compared to previous period`,
+          value: `${trendChange > 0 ? '+' : ''}${trendChange.toFixed(1)}%`,
+          trend: trendChange > 0 ? 'up' : 'down',
+          significance: Math.abs(trendChange) > 15 ? 'high' : Math.abs(trendChange) > 10 ? 'medium' : 'low',
+          category: 'trend',
+          actionable: true,
+          recommendation: trendChange > 0 ? 'Consider scaling operations to meet growing demand' : 'Investigate root causes and develop intervention strategies'
+        });
+      }
+
+      // Add forecast insights if available
+      if (forecastMetrics) {
+        insights.push({
+          id: 'model-performance',
+          title: `${forecastMetrics.modelName} Model Trained`,
+          description: `Model achieved ${forecastMetrics.accuracy.toFixed(1)}% accuracy with ${forecastMetrics.mape.toFixed(1)}% MAPE`,
+          value: `${forecastMetrics.accuracy.toFixed(1)}%`,
+          trend: 'up',
+          significance: forecastMetrics.accuracy > 90 ? 'high' : forecastMetrics.accuracy > 80 ? 'medium' : 'low',
+          category: 'forecast',
+          actionable: true,
+          recommendation: forecastMetrics.accuracy > 90 ? 'Model is production-ready for forecasting' : 'Consider additional feature engineering or model tuning'
+        });
+
+        // Add forecast horizon insight
+        insights.push({
+          id: 'forecast-horizon',
+          title: `${forecastMetrics.forecastHorizon}-Day Forecast Available`,
+          description: `Forecast generated with ${forecastMetrics.confidenceLevel}% confidence intervals`,
+          value: `${forecastMetrics.forecastHorizon} days`,
+          significance: 'medium',
+          category: 'forecast',
+          actionable: false
+        });
+      }
+
+      // Data quality insight
+      const hasForecasts = data.some(d => d.Forecast !== undefined);
+      if (hasForecasts) {
+        const forecastPoints = data.filter(d => d.Forecast !== undefined);
+        insights.push({
+          id: 'forecast-data',
+          title: 'Forecast Data Available',
+          description: `${forecastPoints.length} forecast points generated from historical data`,
+          value: `${forecastPoints.length} points`,
+          significance: 'medium',
+          category: 'forecast',
+          actionable: true,
+          recommendation: 'Review forecast accuracy and adjust confidence intervals as needed'
+        });
+      }
+
+      // Distribution insight
+      const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avgValue, 2), 0) / values.length);
+      const cv = (stdDev / avgValue) * 100;
+      
+      insights.push({
+        id: 'distribution',
+        title: 'Data Distribution Analysis',
+        description: `Coefficient of variation: ${cv.toFixed(1)}%. ${cv < 20 ? 'Low variability' : cv < 40 ? 'Moderate variability' : 'High variability'}`,
+        value: `CV: ${cv.toFixed(1)}%`,
+        significance: cv > 40 ? 'high' : 'low',
+        category: 'quality',
+        actionable: cv > 40,
+        recommendation: cv > 40 ? 'High variability detected. Consider segmentation or additional features' : undefined
+      });
+
       setDynamicInsights(insights);
     } catch (error) {
       console.error('Failed to generate real insights:', error);
@@ -142,7 +228,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
     }
   };
 
-  // Advanced analytics processing
+  // Advanced analytics processing using real data
   const performAdvancedAnalytics = async () => {
     if (!state.selectedLob?.mockData) return;
 
@@ -155,7 +241,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         orders: item.Orders
       }));
 
-      // Comprehensive analysis
+      // Comprehensive analysis using real data
       const values = dataPoints.map(d => d.value);
       const statisticalSummary = statisticalAnalyzer.calculateStatisticalSummary(values);
       const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
@@ -177,10 +263,10 @@ export default function EnhancedDataPanel({ className }: { className?: string })
 
       setAnalyticsResults(results);
 
-      // Generate insight cards
+      // Generate insight cards from real analysis
       const cards: InsightCard[] = [];
 
-      // Data quality insights
+      // Data quality insights from actual data
       if (qualityReport.score < 80) {
         cards.push({
           id: 'quality-warning',
@@ -200,7 +286,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         });
       }
 
-      // Trend insights
+      // Trend insights from real trend analysis
       if (trendAnalysis.confidence > 0.7) {
         cards.push({
           id: 'trend-insight',
@@ -214,7 +300,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         });
       }
 
-      // Seasonality insights
+      // Seasonality insights from real seasonality analysis
       if (seasonalityAnalysis.hasSeasonality) {
         cards.push({
           id: 'seasonality-insight',
@@ -226,7 +312,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         });
       }
 
-      // Business insights (only if requested)
+      // Business insights (only if forecasting was done)
       if (businessInsights) {
         if (businessInsights.opportunities.length > 0) {
           cards.push({
@@ -249,6 +335,19 @@ export default function EnhancedDataPanel({ className }: { className?: string })
             recommendation: businessInsights.actionableRecommendations[1] || 'Monitor closely and develop mitigation strategies'
           });
         }
+      }
+
+      // Add forecast metrics card if available
+      if (state.selectedLob.forecastMetrics) {
+        const fm = state.selectedLob.forecastMetrics;
+        cards.push({
+          id: 'forecast-metrics',
+          title: `${fm.modelName} Model Performance`,
+          description: `Accuracy: ${fm.accuracy.toFixed(1)}%, MAPE: ${fm.mape.toFixed(1)}%, R²: ${fm.r2.toFixed(3)}`,
+          severity: fm.accuracy > 90 ? 'success' : fm.accuracy > 80 ? 'info' : 'warning',
+          actionable: true,
+          recommendation: fm.accuracy > 90 ? 'Model is production-ready' : 'Consider model tuning for better accuracy'
+        });
       }
 
       setInsightCards(cards);
@@ -319,35 +418,6 @@ export default function EnhancedDataPanel({ className }: { className?: string })
   );
 
   const DynamicInsightCard = ({ insight }: { insight: DynamicInsight }) => {
-    // Generate next action chips based on current state
-    const getNextActionChips = () => {
-      const chips = [];
-      
-      if (state.businessUnits.length === 0) {
-        chips.push({ text: 'Create Business Unit', action: 'create_bu', variant: 'default' as const });
-        chips.push({ text: 'Learn Setup', action: 'help', variant: 'outline' as const });
-      } else if (state.businessUnits.every(bu => bu.lobs.length === 0)) {
-        chips.push({ text: 'Create Line of Business', action: 'create_lob', variant: 'default' as const });
-        chips.push({ text: 'Add Another BU', action: 'create_bu', variant: 'outline' as const });
-      } else if (!state.businessUnits.some(bu => bu.lobs.some(lob => lob.hasData))) {
-        chips.push({ text: 'Upload Data', action: 'upload_data', variant: 'default' as const });
-        chips.push({ text: 'Download Template', action: 'template', variant: 'outline' as const });
-      } else if (!state.analyzedData.hasEDA) {
-        chips.push({ text: 'Explore Data', action: 'explore', variant: 'default' as const });
-        chips.push({ text: 'View Data Quality', action: 'quality', variant: 'outline' as const });
-      } else if (!state.analyzedData.hasForecasting) {
-        chips.push({ text: 'Generate Forecast', action: 'forecast', variant: 'default' as const });
-        chips.push({ text: 'Advanced Analysis', action: 'advanced', variant: 'outline' as const });
-      } else {
-        chips.push({ text: 'Export Results', action: 'export', variant: 'default' as const });
-        chips.push({ text: 'New Analysis', action: 'new_analysis', variant: 'outline' as const });
-      }
-      
-      return chips;
-    };
-
-    const nextActionChips = getNextActionChips();
-
     return (
       <Card className={cn(
         "border-l-4 break-inside-avoid",
@@ -387,24 +457,6 @@ export default function EnhancedDataPanel({ className }: { className?: string })
             <Badge variant={insight.significance === 'high' ? 'destructive' : insight.significance === 'medium' ? 'default' : 'secondary'} className="text-xs">
               {insight.significance} priority
             </Badge>
-          </div>
-          
-          {/* Next Action Chips */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {nextActionChips.map((chip, index) => (
-              <Button
-                key={index}
-                size="sm"
-                variant={chip.variant}
-                className="h-7 text-xs"
-                onClick={() => {
-                  // Handle action - could dispatch or trigger chat message
-                  console.log(`Action: ${chip.action}`);
-                }}
-              >
-                {chip.text}
-              </Button>
-            ))}
           </div>
           
           {insight.recommendation && (

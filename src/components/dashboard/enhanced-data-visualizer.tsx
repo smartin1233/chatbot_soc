@@ -59,6 +59,12 @@ export default function EnhancedDataVisualizer({
       // Mark outliers
       const isOutlier = statisticalAnalysis?.statistical?.outliers.indices.includes(index) || false;
       
+      // Create separate fields for actual and forecast to avoid plotting 0 values
+      // ActualValue: only has value for historical data (where Forecast is undefined or 0)
+      // ForecastValue: only has value for forecast data (where Forecast > 0)
+      const isForecastPoint = item.Forecast && item.Forecast > 0;
+      const actualValue = isForecastPoint ? null : item[target];
+      
       return {
         ...item,
         formattedDate: date.toLocaleDateString('en-US', { 
@@ -69,7 +75,8 @@ export default function EnhancedDataVisualizer({
         forecastUpper,
         forecastLower,
         isOutlier,
-        movingAverage
+        movingAverage,
+        ActualValue: actualValue  // New field: null for forecast points
       };
     });
 
@@ -240,7 +247,9 @@ export default function EnhancedDataVisualizer({
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Trend Analysis with Moving Average
+                {processedData.some(d => d.Forecast !== undefined) 
+                  ? 'Actual & Forecast Trend' 
+                  : 'Trend Analysis with Moving Average'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -252,18 +261,61 @@ export default function EnhancedDataVisualizer({
                     fontSize={10}
                     interval="preserveStartEnd"
                   />
-                  <YAxis fontSize={10} />
+                  {/* Y-axis 1 (left): Actual data */}
+                  <YAxis 
+                    yAxisId="actual"
+                    fontSize={10} 
+                    stroke="#8884d8"
+                    label={{ value: 'Actual', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: '#8884d8' } }}
+                  />
+                  
+                  {/* Y-axis 2 (right): Forecast data - only show if forecast exists */}
+                  {processedData.some(d => d.Forecast !== undefined) && (
+                    <YAxis 
+                      yAxisId="forecast"
+                      orientation="right"
+                      fontSize={10}
+                      stroke="#10b981"
+                      label={{ value: 'Forecast', angle: 90, position: 'insideRight', style: { fontSize: 10, fill: '#10b981' } }}
+                    />
+                  )}
+                  
                   <Tooltip content={<CustomTooltip />} />
                   <Legend fontSize={10} />
                   
-                  {/* Main data line */}
+                  {/* Confidence interval area for forecast - uses forecast Y-axis */}
+                  {processedData.some(d => d.ForecastUpper !== undefined) && (
+                    <>
+                      <Area 
+                        yAxisId="forecast"
+                        type="monotone"
+                        dataKey="ForecastUpper"
+                        stroke="none"
+                        fill="#10b981"
+                        fillOpacity={0.15}
+                        name="Forecast Confidence"
+                      />
+                      <Area 
+                        yAxisId="forecast"
+                        type="monotone"
+                        dataKey="ForecastLower"
+                        stroke="none"
+                        fill="#ffffff"
+                        fillOpacity={1}
+                      />
+                    </>
+                  )}
+                  
+                  {/* Main data line - Actual values on Y-axis 1 (left) */}
                   <Line 
+                    yAxisId="actual"
                     type="monotone" 
-                    dataKey={target} 
+                    dataKey="ActualValue"
                     stroke="#8884d8" 
                     strokeWidth={2}
                     dot={(props) => {
                       const { cx, cy, payload } = props;
+                      if (!payload || !payload.ActualValue) return null;
                       return (
                         <circle
                           cx={cx}
@@ -275,22 +327,39 @@ export default function EnhancedDataVisualizer({
                         />
                       );
                     }}
-                    name={target}
+                    name="Actual"
+                    connectNulls={false}
                   />
                   
-                  {/* Moving average line */}
-                  <Line 
-                    type="monotone" 
-                    dataKey="movingAverage" 
-                    stroke="#82ca9d" 
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
-                    dot={false}
-                    name="7-day Moving Avg"
-                  />
+                  {/* Forecast line - shown in green on Y-axis 2 (right) */}
+                  {processedData.some(d => d.Forecast !== undefined) && (
+                    <Line 
+                      yAxisId="forecast"
+                      type="monotone" 
+                      dataKey="Forecast" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: "#10b981" }}
+                      name="Forecast"
+                      connectNulls={false}
+                    />
+                  )}
                   
-                  {/* Trend line */}
-                  {insights && (
+                  {/* Moving average line - only show if no forecast */}
+                  {!processedData.some(d => d.Forecast !== undefined) && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="movingAverage" 
+                      stroke="#82ca9d" 
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      name="7-day Moving Avg"
+                    />
+                  )}
+                  
+                  {/* Trend line - only show if no forecast */}
+                  {insights && !processedData.some(d => d.Forecast !== undefined) && (
                     <Line 
                       type="linear" 
                       dataKey="trend" 
@@ -392,7 +461,9 @@ export default function EnhancedDataVisualizer({
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <Zap className="h-4 w-4" />
-                Forecast with Confidence Intervals
+                {processedData.some(d => d.Forecast !== undefined) 
+                  ? 'Actual & Forecast with Confidence Intervals' 
+                  : 'Forecast with Confidence Intervals'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -408,22 +479,26 @@ export default function EnhancedDataVisualizer({
                   <Tooltip content={<CustomTooltip />} />
                   <Legend fontSize={10} />
                   
-                  {/* Confidence interval area */}
-                  <Area 
-                    type="monotone"
-                    dataKey="forecastUpper"
-                    stroke="none"
-                    fill="#8884d8"
-                    fillOpacity={0.1}
-                    name="Confidence Interval"
-                  />
-                  <Area 
-                    type="monotone"
-                    dataKey="forecastLower"
-                    stroke="none"
-                    fill="#ffffff"
-                    fillOpacity={1}
-                  />
+                  {/* Confidence interval area - only show if forecast data exists */}
+                  {processedData.some(d => d.ForecastUpper !== undefined) && (
+                    <>
+                      <Area 
+                        type="monotone"
+                        dataKey="ForecastUpper"
+                        stroke="none"
+                        fill="#10b981"
+                        fillOpacity={0.1}
+                        name="Confidence Interval"
+                      />
+                      <Area 
+                        type="monotone"
+                        dataKey="ForecastLower"
+                        stroke="none"
+                        fill="#ffffff"
+                        fillOpacity={1}
+                      />
+                    </>
+                  )}
                   
                   {/* Actual data */}
                   <Line 
@@ -433,18 +508,35 @@ export default function EnhancedDataVisualizer({
                     strokeWidth={2}
                     dot={{ r: 3 }}
                     name="Actual"
+                    connectNulls={false}
                   />
                   
-                  {/* Trend projection */}
-                  <Line 
-                    type="linear" 
-                    dataKey="trend" 
-                    stroke="#ff7300" 
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={false}
-                    name="Forecast Trend"
-                  />
+                  {/* Forecast data - only show if it exists */}
+                  {processedData.some(d => d.Forecast !== undefined) && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="Forecast" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ r: 3, fill: "#10b981" }}
+                      name="Forecast"
+                      connectNulls={false}
+                    />
+                  )}
+                  
+                  {/* Fallback: Trend projection if no forecast data */}
+                  {!processedData.some(d => d.Forecast !== undefined) && (
+                    <Line 
+                      type="linear" 
+                      dataKey="trend" 
+                      stroke="#ff7300" 
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      name="Trend Projection"
+                    />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
               

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart, LineChart, AlertTriangle } from 'lucide-react';
@@ -16,7 +16,9 @@ import {
   CartesianGrid,
   Line,
   Bar,
-  ReferenceDot
+  Scatter,
+  ComposedChart,
+  Area
 } from 'recharts';
 import type { WeeklyData } from '@/lib/types';
 import { format } from 'date-fns';
@@ -27,29 +29,40 @@ interface DataVisualizerProps {
   data: WeeklyData[];
   target: 'Value' | 'Orders';
   isRealData: boolean;
+  showOutliers?: boolean; // Only show outliers when user asks about exploration/preprocessing
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const dataPoint = payload[0].payload;
-    let valueText = `Value: ${payload[0].value?.toLocaleString()}`;
-    if (dataPoint.isMissing) {
-      valueText = 'Value: Missing';
-    }
-
+    
     return (
       <div className="bg-background border p-2 rounded-lg shadow-lg">
-        <p className="font-bold">{format(new Date(label), 'PPP')}</p>
-        <p className="text-sm text-foreground">{valueText}</p>
-        {dataPoint.isOutlier && <p className="text-sm text-destructive font-semibold">Outlier Detected</p>}
-        {dataPoint.isMissing && <p className="text-sm text-amber-600 font-semibold">Missing Data</p>}
+        <p className="font-bold">{dataPoint.formattedDate}</p>
+        {dataPoint.Value !== undefined && (
+          <p className="text-sm text-foreground">Value: {dataPoint.Value?.toLocaleString()}</p>
+        )}
+        {dataPoint.Orders !== undefined && dataPoint.Orders > 0 && (
+          <p className="text-sm text-muted-foreground">Orders: {dataPoint.Orders?.toLocaleString()}</p>
+        )}
+        {dataPoint.Forecast !== undefined && (
+          <p className="text-sm text-blue-600 font-semibold">Forecast: {dataPoint.Forecast?.toLocaleString()}</p>
+        )}
+        {dataPoint.ForecastLower !== undefined && dataPoint.ForecastUpper !== undefined && (
+          <p className="text-xs text-muted-foreground">
+            Range: {dataPoint.ForecastLower?.toLocaleString()} - {dataPoint.ForecastUpper?.toLocaleString()}
+          </p>
+        )}
+        {dataPoint.isCriticalOutlier && (
+          <p className="text-sm text-destructive font-semibold">⚠️ Outlier Detected</p>
+        )}
       </div>
     );
   }
   return null;
 };
 
-export default function DataVisualizer({ data, target, isRealData }: DataVisualizerProps) {
+export default function DataVisualizer({ data, target, isRealData, showOutliers = false }: DataVisualizerProps) {
   const [chartType, setChartType] = useState<ChartType>('line');
 
   if (!isRealData) {
@@ -72,26 +85,42 @@ export default function DataVisualizer({ data, target, isRealData }: DataVisuali
     );
   }
 
-  const formattedData = data.map(item => ({
-    ...item,
-    dateString: format(new Date(item.Date), 'MMM d'),
-  }));
+  // Process data: detect CRITICAL outliers only, format dates, separate actual vs forecast
+  const processedData = useMemo(() => {
+    // Calculate CRITICAL outliers using stricter IQR method (3.0 instead of 1.5)
+    const values = data.map(d => d.Value).filter(v => v !== undefined && v !== null);
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 3.0 * iqr; // Critical outliers only (3.0 instead of 1.5)
+    const upperBound = q3 + 3.0 * iqr;
 
-  // These fields do not exist in WeeklyData, so filter will always be empty
-  const outliers: typeof formattedData = [];
-  const missing: typeof formattedData = [];
+    return data.map(item => ({
+      ...item,
+      formattedDate: format(new Date(item.Date), 'dd-MM-yyyy'),
+      dateString: format(new Date(item.Date), 'MMM d, yyyy'),
+      isCriticalOutlier: item.Value < lowerBound || item.Value > upperBound,
+      timestamp: new Date(item.Date).getTime()
+    })).sort((a, b) => a.timestamp - b.timestamp);
+  }, [data]);
 
-  const ChartComponent = chartType === 'line' ? RechartsLineChart : RechartsBarChart;
-  const ChartElement: React.ComponentType<any> = chartType === 'line' ? Line : Bar;
+  // Separate actual and forecast data
+  const actualData = processedData.filter(d => d.Forecast === undefined);
+  const forecastData = processedData.filter(d => d.Forecast !== undefined);
+  const hasForecast = forecastData.length > 0;
+  const hasOrders = processedData.some(d => d.Orders && d.Orders > 0);
 
-  // Map 'target' prop to WeeklyData property
-  const dataKey = target === 'units' ? 'Orders' : 'Value';
+  // Get CRITICAL outliers only (for red dots) - only in actual data
+  const criticalOutliers = processedData.filter(d => d.isCriticalOutlier && d.Forecast === undefined);
+
+  const dataKey = target === 'Orders' ? 'Orders' : 'Value';
 
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium capitalize">
-          Data Visualization - {target}
+        <CardTitle className="text-sm font-medium">
+          {hasForecast ? 'Actual vs Forecast' : 'Historical Data'} - {target}
         </CardTitle>
         <div className="flex items-center space-x-2">
           <Button
@@ -111,26 +140,135 @@ export default function DataVisualizer({ data, target, isRealData }: DataVisuali
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
+        <div className="h-[350px]">
           <ResponsiveContainer width="100%" height="100%">
-            <ChartComponent data={formattedData}>
+            <ComposedChart data={processedData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dateString" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} domain={['dataMin', 'auto']} />
+              <XAxis 
+                dataKey="dateString" 
+                tick={{ fontSize: 11 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <ChartElement
-                type="monotone"
-                dataKey={dataKey}
-                stroke={chartType === 'line' ? "hsl(var(--primary))" : undefined}
-                fill={chartType === 'bar' ? "hsl(var(--primary))" : undefined}
-                name={target.charAt(0).toUpperCase() + target.slice(1)}
-                connectNulls={true}
-              />
-              {/* Outlier and missing markers are not supported in WeeklyData */}
-              {/* If you add outlier/missing logic, update here */}
-            </ChartComponent>
+              
+              {/* Actual Data */}
+              {chartType === 'line' ? (
+                <Line
+                  type="monotone"
+                  dataKey={dataKey}
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  name="Actual"
+                  dot={{ r: 3 }}
+                  connectNulls={true}
+                />
+              ) : (
+                <Bar
+                  dataKey={dataKey}
+                  fill="hsl(var(--primary))"
+                  name="Actual"
+                />
+              )}
+              
+              {/* Forecast Data */}
+              {hasForecast && (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="Forecast"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    name="Forecast"
+                    dot={{ r: 3, fill: '#3b82f6' }}
+                    connectNulls={true}
+                  />
+                  {/* Confidence Interval */}
+                  <Area
+                    type="monotone"
+                    dataKey="ForecastUpper"
+                    stroke="none"
+                    fill="#3b82f6"
+                    fillOpacity={0.1}
+                    name="Upper Bound"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="ForecastLower"
+                    stroke="none"
+                    fill="#3b82f6"
+                    fillOpacity={0.1}
+                    name="Lower Bound"
+                  />
+                </>
+              )}
+              
+              {/* Orders as Regressor (if available) */}
+              {hasOrders && target === 'Value' && (
+                <Line
+                  type="monotone"
+                  dataKey="Orders"
+                  stroke="#10b981"
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                  name="Orders (Regressor)"
+                  dot={false}
+                  yAxisId="right"
+                />
+              )}
+              
+              {/* Outliers as Red Dots - Only show when requested (exploration/preprocessing) */}
+              {showOutliers && criticalOutliers.length > 0 && (
+                <Scatter
+                  data={criticalOutliers}
+                  dataKey={dataKey}
+                  fill="#ef4444"
+                  shape="circle"
+                  name="Outliers"
+                />
+              )}
+              
+              {hasOrders && target === 'Value' && (
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
+        </div>
+        
+        {/* Legend Info */}
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full bg-primary"></div>
+            <span>Actual Data</span>
+          </div>
+          {hasForecast && (
+            <>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-0.5 bg-blue-500" style={{borderTop: '2px dashed'}}></div>
+                <span>Forecast</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 bg-blue-500 opacity-20"></div>
+                <span>Confidence Interval</span>
+              </div>
+            </>
+          )}
+          {showOutliers && criticalOutliers.length > 0 && (
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <span>{criticalOutliers.length} Outlier{criticalOutliers.length > 1 ? 's' : ''}</span>
+            </div>
+          )}
+          {hasOrders && target === 'Value' && (
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-green-500" style={{borderTop: '2px dashed'}}></div>
+              <span>Orders (Regressor)</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

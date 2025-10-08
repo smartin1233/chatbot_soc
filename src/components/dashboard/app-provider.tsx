@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import type { BusinessUnit, LineOfBusiness, ChatMessage, WorkflowStep, BUCreationData, LOBCreationData, DateRange } from '@/lib/types';
+import type { BusinessUnit, LineOfBusiness, ChatMessage, WorkflowStep, BUCreationData, LOBCreationData, DateRange, WeeklyData, OutlierData, ForecastData } from '@/lib/types';
 import { getAPIClient } from '@/lib/api-client';
 import type { AgentMonitorProps } from '@/lib/types';
 
@@ -29,14 +29,27 @@ type AppState = {
     hasInsights: boolean;
     hasPreprocessing: boolean;
     lastAnalysisDate: Date | null;
-    availableCharts: string[];
-    generatedInsights: any[];
+    lastAnalysisType: 'eda' | 'forecasting' | 'comparative' | 'whatif' | null;
+    outliers: OutlierData[];
+    forecastData: ForecastData[];
   };
   conversationContext: {
     topics: string[]; // for example, ['data_exploration', 'forecasting', 'modeling']
     currentPhase: 'onboarding' | 'exploration' | 'analysis' | 'modeling' | 'forecasting' | 'insights';
     completedTasks: string[];
     userIntent: string; // Description of what user wants to achieve
+  };
+  userActivity: {
+    hasSelectedBU: boolean;
+    hasSelectedLOB: boolean;
+    hasUploadedData: boolean;
+    hasPerformedEDA: boolean;
+    hasPreprocessed: boolean;
+    hasTrainedModels: boolean;
+    hasGeneratedForecast: boolean;
+    hasViewedInsights: boolean;
+    lastAction: string;
+    lastAgentType?: string;
   };
 };
 
@@ -58,6 +71,8 @@ type Action =
   | { type: 'ADD_BU'; payload: BUCreationData }
   | { type: 'ADD_LOB'; payload: LOBCreationData }
   | { type: 'UPLOAD_DATA', payload: { lobId: string, file: File } }
+  | { type: 'UPDATE_LOB_FORECAST'; payload: { lobId: string, forecastData: WeeklyData[], forecastMetrics: any } }
+  | { type: 'TRACK_ACTIVITY'; payload: Partial<AppState['userActivity']> }
   | { type: 'TOGGLE_VISUALIZATION', payload: { messageId: string } }
   | { type: 'SET_DATA_PANEL_OPEN'; payload: boolean }
   | { type: 'SET_DATA_PANEL_MODE'; payload: 'chart' | 'table' | 'menu' }
@@ -66,6 +81,7 @@ type Action =
   | { type: 'SET_INSIGHTS_PANEL_OPEN'; payload: boolean }
   | { type: 'SET_DATE_RANGE'; payload: DateRange }
   | { type: 'UPDATE_ANALYZED_DATA'; payload: Partial<AppState['analyzedData']> }
+  | { type: 'SET_ANALYZED_DATA'; payload: Partial<AppState['analyzedData']> }
   | { type: 'RESET_ANALYZED_DATA' }
   | { type: 'END_ONBOARDING' }
   | { type: 'QUEUE_USER_PROMPT'; payload: string }
@@ -92,7 +108,7 @@ const initialState: AppState = {
       id: '1',
       role: 'assistant',
       content: "Hello! I'm your BI forecasting assistant. Select a Business Unit and Line of Business to get started.",
-      suggestions: ['Compare LOB performance', 'Summarize the key business drivers', 'Upload new data']
+      suggestions: ['Create Business Unit', 'Create Line of Business', 'View existing BU/LOBs', 'Help me get started']
     },
   ],
   workflow: [],
@@ -119,14 +135,27 @@ const initialState: AppState = {
     hasInsights: false,
     hasPreprocessing: false,
     lastAnalysisDate: null,
-    availableCharts: [],
-    generatedInsights: []
+    lastAnalysisType: null,
+    outliers: [],
+    forecastData: []
   },
   conversationContext: {
     topics: [],
     currentPhase: 'onboarding',
     completedTasks: [],
     userIntent: ''
+  },
+  userActivity: {
+    hasSelectedBU: false,
+    hasSelectedLOB: false,
+    hasUploadedData: false,
+    hasPerformedEDA: false,
+    hasPreprocessed: false,
+    hasTrainedModels: false,
+    hasGeneratedForecast: false,
+    hasViewedInsights: false,
+    lastAction: 'initial',
+    lastAgentType: undefined
   }
 };
 
@@ -148,7 +177,13 @@ function appReducer(state: AppState, action: Action): AppState {
       return { 
         ...state, 
         selectedBu: action.payload, 
-        selectedLob: action.payload?.lobs[0] || null 
+        selectedLob: action.payload?.lobs[0] || null,
+        userActivity: {
+          ...state.userActivity,
+          hasSelectedBU: !!action.payload,
+          hasSelectedLOB: !!(action.payload?.lobs[0]),
+          lastAction: 'select_bu'
+        }
       };
     case 'SET_SELECTED_LOB':
       // Don't clear workflow when selecting LOB - let it continue if active
@@ -163,8 +198,21 @@ function appReducer(state: AppState, action: Action): AppState {
           hasInsights: false,
           hasPreprocessing: false,
           lastAnalysisDate: null,
-          availableCharts: [],
-          generatedInsights: []
+          lastAnalysisType: null,
+          outliers: [],
+          forecastData: []
+        },
+        userActivity: {
+          ...state.userActivity,
+          hasSelectedLOB: !!action.payload,
+          hasUploadedData: action.payload?.hasData || false,
+          // Reset analysis flags when switching LOB
+          hasPerformedEDA: false,
+          hasPreprocessed: false,
+          hasTrainedModels: false,
+          hasGeneratedForecast: false,
+          hasViewedInsights: false,
+          lastAction: 'select_lob'
         }
       };
     case 'ADD_MESSAGE': {
@@ -238,6 +286,15 @@ function appReducer(state: AppState, action: Action): AppState {
           lastAnalysisDate: new Date()
         }
       };
+    case 'SET_ANALYZED_DATA':
+      return {
+        ...state,
+        analyzedData: {
+          ...state.analyzedData,
+          ...action.payload,
+          lastAnalysisDate: new Date()
+        }
+      };
     case 'RESET_ANALYZED_DATA':
       return {
         ...state,
@@ -247,8 +304,9 @@ function appReducer(state: AppState, action: Action): AppState {
           hasInsights: false,
           hasPreprocessing: false,
           lastAnalysisDate: null,
-          availableCharts: [],
-          generatedInsights: []
+          lastAnalysisType: null,
+          outliers: [],
+          forecastData: []
         }
       };
     case 'END_ONBOARDING':
@@ -333,7 +391,8 @@ function appReducer(state: AppState, action: Action): AppState {
       };
     }
     case 'UPLOAD_DATA': {
-      const recordCount = Math.floor(Math.random() * 5000) + 500;
+      // TODO: Parse actual file data and send to backend
+      // For now, mark as uploaded and let backend handle the data
       const businessUnitsWithData = state.businessUnits.map(bu => ({
         ...bu,
         lobs: bu.lobs.map(lob =>
@@ -342,11 +401,11 @@ function appReducer(state: AppState, action: Action): AppState {
               ...lob,
               hasData: true,
               file: action.payload.file,
-              recordCount: recordCount,
+              recordCount: 0, // Will be set after backend processing
               dataUploaded: new Date(),
               dataQuality: {
-                completeness: 99,
-                outliers: Math.floor(Math.random() * 10),
+                completeness: 0, // Will be calculated from actual data
+                outliers: 0, // Will be detected from actual data
                 seasonality: 'unknown',
                 trend: 'unknown'
               }
@@ -361,10 +420,43 @@ function appReducer(state: AppState, action: Action): AppState {
           id: crypto.randomUUID(),
           role: 'assistant',
           content: `I've uploaded "${action.payload.file.name}" and analyzed the data for the ${updatedLob.name} LOB. It contains ${updatedLob.recordCount} records.`,
-          suggestions: ['Perform Exploratory Data Analysis (EDA)', 'Visualize the key metrics', 'Start a 30-day forecast']
+          suggestions: ['Explore data quality', 'Analyze patterns and trends', 'Check for seasonality', 'Run forecast analysis']
         });
       }
-      return { ...state, businessUnits: businessUnitsWithData, messages: newMessages };
+      return { 
+        ...state, 
+        businessUnits: businessUnitsWithData, 
+        messages: newMessages,
+        userActivity: {
+          ...state.userActivity,
+          hasUploadedData: true,
+          lastAction: 'upload_data'
+        }
+      };
+    }
+    case 'UPDATE_LOB_FORECAST': {
+      return {
+        ...state,
+        businessUnits: state.businessUnits.map(bu => ({
+          ...bu,
+          lobs: bu.lobs.map(lob =>
+            lob.id === action.payload.lobId
+              ? {
+                  ...lob,
+                  mockData: action.payload.forecastData,
+                  forecastMetrics: action.payload.forecastMetrics
+                }
+              : lob
+          )
+        })),
+        selectedLob: state.selectedLob?.id === action.payload.lobId
+          ? {
+              ...state.selectedLob,
+              mockData: action.payload.forecastData,
+              forecastMetrics: action.payload.forecastMetrics
+            }
+          : state.selectedLob
+      };
     }
     case 'TOGGLE_VISUALIZATION': {
       return {
@@ -383,6 +475,15 @@ function appReducer(state: AppState, action: Action): AppState {
       console.log('Generating report for message:', action.payload.messageId);
       // Could add logic to save report, update state, etc.
       return state;
+    }
+    case 'TRACK_ACTIVITY': {
+      return {
+        ...state,
+        userActivity: {
+          ...state.userActivity,
+          ...action.payload
+        }
+      };
     }
     case 'UPDATE_CONVERSATION_CONTEXT':
       return {

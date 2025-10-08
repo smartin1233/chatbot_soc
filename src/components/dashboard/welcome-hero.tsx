@@ -21,10 +21,23 @@ export default function WelcomeHero() {
   }, [prompt]);
 
   const canContinue = !!state.selectedBu && !!state.selectedLob;
+  
   const start = () => {
     if (canContinue) {
-      if (prompt.trim()) dispatch({ type: "QUEUE_USER_PROMPT", payload: prompt.trim() });
+      if (prompt.trim()) {
+        dispatch({ type: "QUEUE_USER_PROMPT", payload: prompt.trim() });
+      }
       dispatch({ type: "END_ONBOARDING" });
+    }
+  };
+
+  const handlePromptClick = (promptText: string) => {
+    if (canContinue) {
+      dispatch({ type: "QUEUE_USER_PROMPT", payload: promptText });
+      dispatch({ type: "END_ONBOARDING" });
+    } else {
+      // If BU/LOB not selected, fill the textarea
+      setPrompt((p) => (p ? `${p} ${promptText}` : promptText));
     }
   };
 
@@ -119,7 +132,7 @@ export default function WelcomeHero() {
                 ];
               }
             })().map((s) => (
-              <Button key={s} size="sm" variant="outline" onClick={() => setPrompt((p) => (p ? `${p} ${s}` : s))}>
+              <Button key={s} size="sm" variant="outline" onClick={() => handlePromptClick(s)}>
                 {s}
               </Button>
             ))}

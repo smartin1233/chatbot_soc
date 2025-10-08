@@ -49,6 +49,7 @@ export class ZentereAPIClient {
       this.tokenType = data.token_type || "Bearer";
       
       console.log('✅ Authentication successful, token received');
+      console.log('🔑 Token set:', this.accessToken ? 'Yes (length: ' + this.accessToken.length + ')' : 'No');
     } catch (error) {
       console.error('❌ Authentication error:', error);
       
@@ -112,61 +113,42 @@ export class ZentereAPIClient {
   }
 
   /**
-   * Fetch all unique Business Units from data_feeds
+   * Fetch all Business Units from business.unit model
    */
-  async getBusinessUnits(): Promise<Array<{ id: string; name: string }>> {
+  async getBusinessUnits(): Promise<Array<{ id: string; name: string; code: string; displayName: string }>> {
     const records = await this.searchRead(
-      'data_feeds',
-      ['business_unit_id'],
-      undefined,
+      'business.unit',
+      ['id', 'name', 'code', 'display_name'],
+      [],
       1000
     );
 
-    const buMap = new Map<number, string>();
-    
-    records.forEach((record: DataFeedRecord) => {
-      if (record.business_unit_id && Array.isArray(record.business_unit_id)) {
-        const [id, name] = record.business_unit_id;
-        buMap.set(id, name);
-      }
-    });
-
-    return Array.from(buMap.entries()).map(([id, name]) => ({
-      id: id.toString(),
-      name,
+    return records.map((record: any) => ({
+      id: record.id.toString(),
+      name: record.name || '',
+      code: record.code || '',
+      displayName: record.display_name || record.name || '',
     }));
   }
 
   /**
-   * Fetch all unique Lines of Business from data_feeds
+   * Fetch all Lines of Business from line_business_lob model
    */
-  async getLinesOfBusiness(): Promise<Array<{ id: string; name: string; businessUnitId: string }>> {
+  async getLinesOfBusiness(): Promise<Array<{ id: string; name: string; code: string; businessUnitId: string }>> {
     const records = await this.searchRead(
-      'data_feeds',
-      ['lob_id', 'business_unit_id'],
-      undefined,
+      'line_business_lob',
+      ['id', 'name', 'code', 'business_unit_id'],
+      [],
       1000
     );
 
-    const lobMap = new Map<number, { name: string; businessUnitId: string }>();
-    
-    records.forEach((record: DataFeedRecord) => {
-      if (record.lob_id && Array.isArray(record.lob_id)) {
-        const [lobId, lobName] = record.lob_id;
-        const buId = record.business_unit_id && Array.isArray(record.business_unit_id) 
-          ? record.business_unit_id[0].toString() 
-          : '';
-        
-        if (!lobMap.has(lobId)) {
-          lobMap.set(lobId, { name: lobName, businessUnitId: buId });
-        }
-      }
-    });
-
-    return Array.from(lobMap.entries()).map(([id, data]) => ({
-      id: id.toString(),
-      name: data.name,
-      businessUnitId: data.businessUnitId,
+    return records.map((record: any) => ({
+      id: record.id.toString(),
+      name: record.name || '',
+      code: record.code || '',
+      businessUnitId: record.business_unit_id && Array.isArray(record.business_unit_id)
+        ? record.business_unit_id[0].toString()
+        : '',
     }));
   }
 
@@ -385,6 +367,209 @@ export class ZentereAPIClient {
     }
 
     return true;
+  }
+
+  // ============================================================================
+  // BUSINESS UNIT CRUD OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new Business Unit
+   */
+  async createBusinessUnit(data: {
+    name: string;
+    display_name: string;
+    code: string;
+    start_date?: string;
+    description?: string;
+  }): Promise<number> {
+    try {
+      console.log('📤 Creating BU with data:', data);
+      console.log('🔑 Using token:', this.accessToken ? 'Yes (length: ' + this.accessToken.length + ')' : 'NO TOKEN!');
+      
+      if (!this.accessToken) {
+        throw new Error('No access token available. Authentication may have failed.');
+      }
+      
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          token: this.accessToken,
+          model: 'business.unit',
+          values: data,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const errorMsg = errorData.details || errorData.error || `Create failed: ${response.status}`;
+        console.error('❌ Create BU failed:', errorMsg);
+        console.error('📋 Data sent:', data);
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json();
+      console.log('✅ BU created, result:', result);
+      return typeof result === 'number' ? result : result.id;
+    } catch (error) {
+      console.error('Create Business Unit error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a Business Unit
+   */
+  async updateBusinessUnit(recordId: number, values: any): Promise<boolean> {
+    try {
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'write',
+          token: this.accessToken,
+          model: 'business.unit',
+          recordId,
+          values,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Update failed: ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Update Business Unit error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a Business Unit
+   */
+  async deleteBusinessUnit(recordId: number): Promise<boolean> {
+    try {
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unlink',
+          token: this.accessToken,
+          model: 'business.unit',
+          recordId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Delete failed: ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Delete Business Unit error:', error);
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // LINE OF BUSINESS CRUD OPERATIONS
+  // ============================================================================
+
+  /**
+   * Create a new Line of Business
+   */
+  async createLOB(data: {
+    name: string;
+    code: string;
+    business_unit_id: number;
+    start_date?: string;
+    description?: string;
+  }): Promise<number> {
+    try {
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          token: this.accessToken,
+          model: 'line_business_lob',
+          values: data,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Create failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return typeof result === 'number' ? result : result.id;
+    } catch (error) {
+      console.error('Create LOB error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a Line of Business
+   */
+  async updateLOB(recordId: number, values: any): Promise<boolean> {
+    try {
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'write',
+          token: this.accessToken,
+          model: 'line_business_lob',
+          recordId,
+          values,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Update failed: ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Update LOB error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a Line of Business
+   */
+  async deleteLOB(recordId: number): Promise<boolean> {
+    try {
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unlink',
+          token: this.accessToken,
+          model: 'line_business_lob',
+          recordId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Delete failed: ${response.status}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Delete LOB error:', error);
+      throw error;
+    }
   }
 }
 

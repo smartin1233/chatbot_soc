@@ -13,6 +13,41 @@ export type DataQuality = {
   trend: string;
 };
 
+export type OutlierData = {
+  index: number;
+  value: number;
+  date: Date;
+  reason: string;
+  severity: 'high' | 'medium' | 'low';
+};
+
+export type ForecastData = {
+  date: Date;
+  forecast: number;
+  lower: number;
+  upper: number;
+  confidence: number;
+};
+
+export type ForecastMetrics = {
+  modelName: string; // e.g., "XGBoost", "Prophet", "LSTM"
+  accuracy: number; // e.g., 94.2
+  mape: number; // Mean Absolute Percentage Error
+  rmse: number; // Root Mean Squared Error
+  r2: number; // R-squared score
+  forecastHorizon: number; // Days forecasted
+  trainedDate: Date;
+  confidenceLevel: number; // e.g., 95
+  isOptimal: boolean; // True if this is the best model
+  comparisonMetrics?: {
+    otherModels: Array<{
+      name: string;
+      accuracy: number;
+      mape: number;
+    }>;
+  };
+};
+
 export type LineOfBusiness = {
   id: string;
   name: string;
@@ -23,8 +58,9 @@ export type LineOfBusiness = {
   hasData: boolean;
   dataUploaded: Date | null;
   recordCount: number;
-  mockData?: WeeklyData[];
+  mockData?: WeeklyData[]; // Includes historical + forecast data
   dataQuality?: DataQuality;
+  forecastMetrics?: ForecastMetrics; // Model performance after forecasting
   file?: File;
   suggestions?: string[];
   createdDate: Date; // When LOB was created
@@ -96,6 +132,7 @@ export type ChatMessage = {
     data: WeeklyData[];
     target: 'Value' | 'Orders';
     isShowing?: boolean;
+    showOutliers?: boolean; // Only show outliers for exploration/preprocessing
   };
   agentType?: string;
   canGenerateReport?: boolean;
@@ -301,6 +338,18 @@ export type AppState = {
   insights: DynamicInsight[];
   isInsightsPanelOpen: boolean;
   hasAnalyzedData: boolean;
+  analyzedData: {
+    hasEDA: boolean;
+    hasForecasting: boolean;
+    hasInsights: boolean;
+    hasPreprocessing: boolean;
+    lastAnalysisDate: Date | null;
+    lastAnalysisType: 'eda' | 'forecasting' | 'comparative' | 'whatif' | null;
+    outliers: OutlierData[];
+    forecastData: ForecastData[];
+  };
+  queuedUserPrompt: string | null;
+  isProcessing: boolean;
 };
 
 export type InsightsContext = {

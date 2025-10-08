@@ -1,55 +1,83 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
-import type { WeeklyData } from '@/lib/types';
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Activity, TrendingUp, TrendingDown } from "lucide-react";
+
+interface WeeklyData {
+  Date?: string;
+  ds?: string;
+  date?: string;
+  Value?: number;
+  Orders?: number;
+  Forecast?: number;
+  ForecastLower?: number;
+  ForecastUpper?: number;
+}
 
 interface ForecastComparisonChartProps {
   data: WeeklyData[];
   title?: string;
-  target: 'Value' | 'Orders';
+  target: "Value" | "Orders";
 }
 
-export default function ForecastComparisonChart({ 
-  data, 
+export default function ForecastComparisonChart({
+  data,
   title = "Actual vs Forecast Comparison",
-  target 
+  target,
 }: ForecastComparisonChartProps) {
-  // Separate historical and forecast data
-  const historicalData = data.filter(d => !d.Forecast);
-  const forecastData = data.filter(d => d.Forecast);
-  
-  // Calculate accuracy metrics
-  const actualVsForecast = data.filter(d => d.Forecast && d[target]);
-  const mape = actualVsForecast.length > 0 
-    ? actualVsForecast.reduce((sum, d) => {
-        const actual = d[target];
-        const forecast = d.Forecast!;
-        return sum + Math.abs((actual - forecast) / actual);
-      }, 0) / actualVsForecast.length * 100
-    : 0;
+  // Separate actual and forecast data
+  const historicalData = data.filter((d) => d.Forecast == null);
+  const forecastData = data.filter((d) => d.Forecast != null);
 
-  const trend = historicalData.length > 1 
-    ? historicalData[historicalData.length - 1][target] > historicalData[0][target] ? 'up' : 'down'
-    : 'stable';
+  // Include forecast-only rows for comparison
+  const actualVsForecast = data.filter((d) => d.Forecast != null);
 
-  // Generate simple ASCII-style chart
-  const generateMiniChart = (values: number[]) => {
-    if (values.length === 0) return '';
-    
-    const max = Math.max(...values);
-    const min = Math.min(...values);
+  // Compute MAPE (ignore zero actuals)
+  const mape = (() => {
+    const pairs = data.filter(
+      (d) =>
+        d.Forecast != null &&
+        d[target] != null &&
+        d[target] !== 0
+    );
+    if (pairs.length === 0) return 0;
+    const sum = pairs.reduce((acc, d) => {
+      const actual = Number(d[target]);
+      const forecast = Number(d.Forecast);
+      return acc + Math.abs((actual - forecast) / actual);
+    }, 0);
+    return (sum / pairs.length) * 100;
+  })();
+
+  // Determine trend direction
+  const trend =
+    historicalData.length > 1
+      ? historicalData[historicalData.length - 1][target]! >
+        historicalData[0][target]!
+        ? "up"
+        : "down"
+      : "stable";
+
+  // Generate mini sparkline
+  const generateMiniChart = (values: (number | null | undefined)[]) => {
+    const filtered = values.filter((v) => v != null) as number[];
+    if (filtered.length === 0) return "";
+    const max = Math.max(...filtered);
+    const min = Math.min(...filtered);
     const range = max - min;
-    
-    return values.map(val => {
-      const normalized = range > 0 ? (val - min) / range : 0.5;
-      const height = Math.round(normalized * 8);
-      return '▁▂▃▄▅▆▇█'[height] || '▁';
-    }).join('');
+    const chars = "▁▂▃▄▅▆▇█";
+    return values
+      .map((v) => {
+        if (v == null) return " ";
+        const normalized = range > 0 ? (v - min) / range : 0.5;
+        const height = Math.round(normalized * 7);
+        return chars[height] || "▁";
+      })
+      .join("");
   };
 
-  const historicalValues = historicalData.map(d => d[target]);
-  const forecastValues = forecastData.map(d => d.Forecast!);
+  const historicalValues = historicalData.map((d) => d[target] as number | null);
+  const forecastValues = forecastData.map((d) => d.Forecast as number);
 
   return (
     <Card className="border-l-4 border-l-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20">
@@ -63,19 +91,24 @@ export default function ForecastComparisonChart({
             <Badge variant="outline" className="text-xs">
               MAPE: {mape.toFixed(1)}%
             </Badge>
-            {trend === 'up' ? (
+            {trend === "up" ? (
               <TrendingUp className="h-4 w-4 text-green-500" />
-            ) : (
+            ) : trend === "down" ? (
               <TrendingDown className="h-4 w-4 text-red-500" />
+            ) : (
+              <span className="text-xs text-gray-500">Stable</span>
             )}
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-4">
         {/* Historical Data */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-600">Historical {target}</span>
+            <span className="text-sm font-medium text-blue-600">
+              Historical {target}
+            </span>
             <span className="text-xs text-muted-foreground">
               {historicalData.length} data points
             </span>
@@ -86,7 +119,14 @@ export default function ForecastComparisonChart({
               <span className="text-lg">{generateMiniChart(historicalValues)}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              Range: {Math.min(...historicalValues).toFixed(1)} - {Math.max(...historicalValues).toFixed(1)}
+              Range:{" "}
+              {historicalValues.filter((v) => v != null).length
+                ? `${Math.min(
+                  ...(historicalValues.filter((v) => v != null) as number[])
+                ).toFixed(1)} - ${Math.max(
+                  ...(historicalValues.filter((v) => v != null) as number[])
+                ).toFixed(1)}`
+                : "N/A"}
             </div>
           </div>
         </div>
@@ -95,7 +135,9 @@ export default function ForecastComparisonChart({
         {forecastData.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-green-600">Forecast {target}</span>
+              <span className="text-sm font-medium text-green-600">
+                Forecast {target}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {forecastData.length} predictions
               </span>
@@ -106,13 +148,15 @@ export default function ForecastComparisonChart({
                 <span className="text-lg">{generateMiniChart(forecastValues)}</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                Range: {Math.min(...forecastValues).toFixed(1)} - {Math.max(...forecastValues).toFixed(1)}
+                Range:{" "}
+                {Math.min(...forecastValues).toFixed(1)} -{" "}
+                {Math.max(...forecastValues).toFixed(1)}
               </div>
             </div>
           </div>
         )}
 
-        {/* Comparison Table */}
+        {/* Recent Comparisons */}
         {actualVsForecast.length > 0 && (
           <div className="space-y-2">
             <span className="text-sm font-medium">Recent Comparisons</span>
@@ -126,16 +170,33 @@ export default function ForecastComparisonChart({
                 </div>
                 {actualVsForecast.slice(-5).map((d, i) => {
                   const actual = d[target];
-                  const forecast = d.Forecast!;
-                  const error = ((actual - forecast) / actual * 100);
-                  
+                  const forecast = d.Forecast;
+                  const hasActual = actual != null && actual !== 0;
+                  const error = hasActual
+                    ? ((actual - forecast!) / actual) * 100
+                    : null;
+                  const dateVal = new Date(
+                    d.Date || d.ds || d.date || ""
+                  ).toLocaleDateString();
                   return (
                     <div key={i} className="grid grid-cols-4 gap-2">
-                      <span>{new Date(d.Date).toLocaleDateString()}</span>
-                      <span>{actual.toFixed(1)}</span>
-                      <span>{forecast.toFixed(1)}</span>
-                      <span className={error > 0 ? 'text-green-600' : 'text-red-600'}>
-                        {error > 0 ? '+' : ''}{error.toFixed(1)}%
+                      <span>{dateVal}</span>
+                      <span>
+                        {actual != null ? Number(actual).toFixed(1) : "—"}
+                      </span>
+                      <span>
+                        {forecast != null ? Number(forecast).toFixed(1) : "—"}
+                      </span>
+                      <span
+                        className={
+                          error != null && error > 0
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {error != null
+                          ? (error > 0 ? "+" : "") + error.toFixed(1) + "%"
+                          : "N/A"}
                       </span>
                     </div>
                   );
@@ -146,23 +207,33 @@ export default function ForecastComparisonChart({
         )}
 
         {/* Confidence Bounds */}
-        {forecastData.some(d => d.ForecastLower && d.ForecastUpper) && (
-          <div className="space-y-2">
-            <span className="text-sm font-medium">Confidence Bounds</span>
-            <div className="bg-background/50 rounded p-3 text-xs">
-              <div className="space-y-1">
-                {forecastData.filter(d => d.ForecastLower && d.ForecastUpper).slice(-3).map((d, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span>{new Date(d.Date).toLocaleDateString()}</span>
-                    <span className="font-mono">
-                      [{d.ForecastLower!.toFixed(1)}, {d.ForecastUpper!.toFixed(1)}]
-                    </span>
-                  </div>
-                ))}
+        {forecastData.some(
+          (d) => d.ForecastLower && d.ForecastUpper
+        ) && (
+            <div className="space-y-2">
+              <span className="text-sm font-medium">Confidence Bounds</span>
+              <div className="bg-background/50 rounded p-3 text-xs">
+                <div className="space-y-1">
+                  {forecastData
+                    .filter((d) => d.ForecastLower && d.ForecastUpper)
+                    .slice(-3)
+                    .map((d, i) => (
+                      <div key={i} className="flex justify-between">
+                        <span>
+                          {new Date(
+                            d.Date || d.ds || d.date || ""
+                          ).toLocaleDateString()}
+                        </span>
+                        <span className="font-mono">
+                          [{d.ForecastLower!.toFixed(1)},{" "}
+                          {d.ForecastUpper!.toFixed(1)}]
+                        </span>
+                      </div>
+                    ))}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
       </CardContent>
     </Card>
   );

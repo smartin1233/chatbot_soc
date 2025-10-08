@@ -88,6 +88,100 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(data);
     }
 
+    // Handle create
+    if (action === 'create') {
+      const { model, values } = body;
+      const url = new URL(`${API_BASE_URL}/create`);
+      url.searchParams.append('model', model);
+
+      console.log(`📝 Creating record in ${model}`);
+      console.log('📋 Values received:', JSON.stringify(values, null, 2));
+      console.log('📤 Sending to:', url.toString());
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Create failed:', response.status, errorText);
+        console.error('Request was:', { model, values });
+        return NextResponse.json(
+          { error: `Create failed: ${response.status}`, details: errorText },
+          { status: response.status }
+        );
+      }
+
+      const data = await response.json();
+      console.log(`✅ Created record with ID: ${data}`);
+      return NextResponse.json(data);
+    }
+
+    // Handle write (update)
+    if (action === 'write') {
+      const { model, recordId, values } = body;
+      const url = new URL(`${API_BASE_URL}/write`);
+      url.searchParams.append('model', model);
+
+      console.log(`✏️ Updating record ${recordId} in ${model}`);
+
+      const response = await fetch(url.toString(), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: recordId, values }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update failed:', response.status, errorText);
+        return NextResponse.json(
+          { error: `Update failed: ${response.status}` },
+          { status: response.status }
+        );
+      }
+
+      console.log(`✅ Updated record ${recordId}`);
+      return NextResponse.json({ success: true });
+    }
+
+    // Handle unlink (delete)
+    if (action === 'unlink') {
+      const { model, recordId } = body;
+      const url = new URL(`${API_BASE_URL}/unlink`);
+      url.searchParams.append('model', model);
+
+      console.log(`🗑️ Deleting record ${recordId} from ${model}`);
+
+      const response = await fetch(url.toString(), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: recordId }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete failed:', response.status, errorText);
+        return NextResponse.json(
+          { error: `Delete failed: ${response.status}` },
+          { status: response.status }
+        );
+      }
+
+      console.log(`✅ Deleted record ${recordId}`);
+      return NextResponse.json({ success: true });
+    }
+
     return NextResponse.json(
       { error: 'Invalid action' },
       { status: 400 }
