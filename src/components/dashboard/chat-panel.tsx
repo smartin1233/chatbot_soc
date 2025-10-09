@@ -212,14 +212,14 @@ class MultiAgentChatHandler {
     const lowerMessage = userMessage.toLowerCase();
     const selectedAgents: string[] = [];
 
-    // Define sequential workflow for forecasting
+    // Define sequential workflow for forecasting (only on explicit action)
     const forecastingWorkflow = ['eda', 'forecasting'];
 
-    // Check if message matches forecasting keywords
-    if (/(forecast|predict|train|process|clean)/i.test(lowerMessage)) {
+    // Trigger only when user explicitly asks to run/generate/start a forecast
+    if (/(run|start|generate|create)\s+(a\s+)?forecast/i.test(lowerMessage) || /run.*forecast|generate.*forecast|start.*forecast/i.test(lowerMessage)) {
       this.dispatch({
         type: 'ADD_THINKING_STEP',
-        payload: '🔄 Dynamic workflow for forecasting triggered'
+        payload: '🔄 Forecasting workflow initiated'
       });
       return forecastingWorkflow;
     }
@@ -338,7 +338,7 @@ class MultiAgentChatHandler {
             { role: "system", content: systemPrompt },
             ...this.conversationHistory
           ],
-          temperature: 0.7,
+          temperature: 0.3,
           max_tokens: 800
         });
 
@@ -407,13 +407,14 @@ class MultiAgentChatHandler {
 
     if (selectedLob?.hasData) {
       const dq = selectedLob.dataQuality;
+      const wantsOutliers = /\b(outlier|anomal|quality\s*check)\b/i.test(userPrompt || '');
       dataContext = `
 📊 YOUR DATA:
 • ${selectedLob.recordCount} records
 • Data quality: ${dq?.completeness >= 90 ? 'Excellent' : dq?.completeness >= 70 ? 'Good' : 'Needs improvement'} (${dq?.completeness}% complete)
 • Trend: ${dq?.trend || 'Stable'}
 • Pattern: ${dq?.seasonality?.replace(/_/g, ' ') || 'No clear pattern yet'}
-• Outliers: ${dq?.outliers || 0} unusual values found
+${wantsOutliers ? `• Outliers: ${dq?.outliers || 0} potential anomalies` : ''}
 `;
 
       this.dispatch({ type: 'ADD_THINKING_STEP', payload: '✓ Context loaded' });
@@ -436,7 +437,9 @@ ${dataContext}
 3. Focus on ACTIONS they can take
 4. Be SPECIFIC to their business (${selectedLob?.name || 'their data'})
 5. End with "What would you like to do next?"
-6. Use emojis to make it friendly 😊
+6. If unsure, ask a clarifying question. Do not fabricate details.
+7. Only discuss outliers when the user asks about outliers, anomalies, or quality checks.
+8. Use emojis to make it friendly 😊
 
 Remember: You're ${agent.specialty} - use your expertise to help them succeed!`;
   }
@@ -549,16 +552,18 @@ function extractForecastDataFromResponse(responseText: string, data?: WeeklyData
 }
 
 // Enhanced Chat Bubble Component
-function ChatBubble({ 
-  message, 
-  onSuggestionClick, 
+function ChatBubble({
+  message,
+  onSuggestionClick,
   onVisualizeClick,
+  onViewInsightsClick,
   onGenerateReport,
-  thinkingSteps 
-}: { 
+  thinkingSteps
+}: {
   message: ChatMessage;
   onSuggestionClick: (suggestion: string) => void;
   onVisualizeClick: (messageId: string) => void;
+  onViewInsightsClick: (messageId: string) => void;
   onGenerateReport?: (messageId: string) => void;
   thinkingSteps: string[];
 }) {
@@ -676,12 +681,17 @@ function ChatBubble({
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => onVisualizeClick(message.id)}>
               <BarChart className="mr-2 h-4 w-4 text-foreground" />
-              {message.visualization.data.some((d: any) => d.Forecast !== undefined) 
-                ? 'Visualize Actual & Forecast' 
+              {message.visualization.data.some((d: any) => d.Forecast !== undefined)
+                ? 'Visualize Actual & Forecast'
                 : message.visualization.showOutliers
                 ? 'Visualize Data with Outliers'
                 : 'Visualize Data'}
             </Button>
+            {message.visualization.data.some((d: any) => d.Forecast !== undefined) && (
+              <Button size="sm" variant="outline" onClick={() => onViewInsightsClick(message.id)}>
+                View Insights
+              </Button>
+            )}
           </div>
         )}
         {message.canGenerateReport && onGenerateReport && (
@@ -870,13 +880,15 @@ export default function ChatPanel({ className }: { className?: string }) {
         (/(visuali[sz]e|chart|plot|graph|trend|distribution)/i.test(messageText + content) ||
          (agentType === 'eda' && /pattern|trend|seasonality/i.test(content)));
 
-      let visualization: { data: WeeklyData[]; target: "Value" | "Orders"; isShowing: boolean } | undefined;
+      let visualization: { data: WeeklyData[]; target: "Value" | "Orders"; isShowing: boolean; showOutliers?: boolean } | undefined;
       if (shouldVisualize) {
         const isRevenue = /(revenue|sales|amount|gmv|income)/i.test(messageText + content);
+        const wantsOutliers = /(outlier|anomal|quality\s*check)/i.test(messageText);
         visualization = {
           data: state.selectedLob!.timeSeriesData!,
           target: isRevenue ? 'Value' : 'Orders',
           isShowing: false,
+          showOutliers: wantsOutliers
         };
       }
 
@@ -951,13 +963,16 @@ export default function ChatPanel({ className }: { className?: string }) {
   
   // Visualize click handler
   const handleVisualizeClick = (messageId: string) => {
+    // Only toggle inline visualization; do not auto-open insights panel
+    dispatch({ type: 'TOGGLE_VISUALIZATION', payload: { messageId } });
+  };
+
+  const handleViewInsightsClick = (messageId: string) => {
     const msg = state.messages.find(m => m.id === messageId);
-    // Map target to expected values to fix type error
-    const target = msg?.visualization?.target === "Orders" ? "units" : "revenue";
+    const target = msg?.visualization?.target === 'Orders' ? 'units' : 'revenue';
     dispatch({ type: 'SET_DATA_PANEL_TARGET', payload: target });
     dispatch({ type: 'SET_DATA_PANEL_MODE', payload: 'chart' });
     dispatch({ type: 'SET_DATA_PANEL_OPEN', payload: true });
-    dispatch({ type: 'TOGGLE_VISUALIZATION', payload: { messageId } });
   };
 
   // Generate report handler
@@ -986,11 +1001,12 @@ export default function ChatPanel({ className }: { className?: string }) {
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
               <div className="p-4 space-y-4">
                 {state.messages.map(message => (
-                  <ChatBubble 
-                    key={message.id} 
-                    message={message} 
+                  <ChatBubble
+                    key={message.id}
+                    message={message}
                     onSuggestionClick={handleSuggestionClick}
                     onVisualizeClick={() => handleVisualizeClick(message.id)}
+                    onViewInsightsClick={() => handleViewInsightsClick(message.id)}
                     onGenerateReport={handleGenerateReport}
                     thinkingSteps={state.thinkingSteps}
                   />
