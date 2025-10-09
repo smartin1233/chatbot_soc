@@ -78,6 +78,14 @@ export interface DataQualityReport {
   recommendations: string[];
 }
 
+export interface OutlierDetectionResult {
+  method: 'iqr' | 'zscore' | 'mad';
+  indices: number[];
+  values: number[];
+  thresholds?: { lower: number; upper: number };
+  zscoreThreshold?: number;
+}
+
 export class StatisticalAnalyzer {
   /**
    * Generate comprehensive statistical summary WITHOUT outlier detection
@@ -141,6 +149,59 @@ export class StatisticalAnalyzer {
         strength: seasonalityAnalysis.strength
       }
     };
+  }
+
+  /**
+   * Dedicated outlier detection (IQR by default, optional MAD/Z-score)
+   * Only call this when the user asks about outliers/anomalies/quality checks.
+   */
+  detectOutliers(values: number[], method: 'iqr' | 'zscore' | 'mad' = 'iqr', zThreshold: number = 3): OutlierDetectionResult {
+    const result: OutlierDetectionResult = { method, indices: [], values: [] };
+    if (!values || values.length === 0) return result;
+
+    if (method === 'iqr') {
+      const sorted = [...values].sort((a, b) => a - b);
+      const q1 = this.calculatePercentile(sorted, 25);
+      const q3 = this.calculatePercentile(sorted, 75);
+      const iqr = q3 - q1;
+      const lower = q1 - 1.5 * iqr;
+      const upper = q3 + 1.5 * iqr;
+      values.forEach((v, i) => {
+        if (v < lower || v > upper) {
+          result.indices.push(i);
+          result.values.push(v);
+        }
+      });
+      result.thresholds = { lower, upper };
+      return result;
+    }
+
+    if (method === 'mad') {
+      const median = this.calculatePercentile([...values].sort((a,b)=>a-b), 50);
+      const absDev = values.map(v => Math.abs(v - median));
+      const mad = this.calculatePercentile([...absDev].sort((a,b)=>a-b), 50) || 1e-9;
+      values.forEach((v, i) => {
+        const modifiedZ = 0.6745 * (v - median) / mad;
+        if (Math.abs(modifiedZ) > 3.5) {
+          result.indices.push(i);
+          result.values.push(v);
+        }
+      });
+      return result;
+    }
+
+    // z-score
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    const std = Math.sqrt(values.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / values.length) || 1e-9;
+    values.forEach((v, i) => {
+      const z = (v - mean) / std;
+      if (Math.abs(z) > zThreshold) {
+        result.indices.push(i);
+        result.values.push(v);
+      }
+    });
+    result.zscoreThreshold = zThreshold;
+    return result;
   }
 
   /**
