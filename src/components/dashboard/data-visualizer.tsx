@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -168,13 +167,15 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                 textAnchor="end"
                 height={60}
               />
-              <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
+              {/* Left Y-axis: Actual values */}
+              <YAxis yAxisId="actual" tick={{ fontSize: 12 }} domain={['auto', 'auto']} label={{ value: 'Actual', angle: -90, position: 'insideLeft', style: { fontSize: 10 } }} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
 
               {/* Actual Data */}
               {chartType === 'line' ? (
                 <Line
+                  yAxisId="actual"
                   type="monotone"
                   dataKey={dataKey}
                   stroke="hsl(var(--primary))"
@@ -194,7 +195,10 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
               {/* Forecast Data */}
               {hasForecast && (
                 <>
+                  {/* Right Y-axis: Forecast values */}
+                  <YAxis yAxisId="forecast" orientation="right" tick={{ fontSize: 12 }} label={{ value: 'Forecast', angle: 90, position: 'insideRight', style: { fontSize: 10 } }} />
                   <Line
+                    yAxisId="forecast"
                     type="monotone"
                     dataKey="Forecast"
                     stroke="#3b82f6"
@@ -206,6 +210,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   />
                   {/* Confidence Interval */}
                   <Area
+                    yAxisId="forecast"
                     type="monotone"
                     dataKey="ForecastUpper"
                     stroke="none"
@@ -214,6 +219,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                     name="Upper Bound"
                   />
                   <Area
+                    yAxisId="forecast"
                     type="monotone"
                     dataKey="ForecastLower"
                     stroke="none"
