@@ -580,8 +580,8 @@ class EnhancedMultiAgentChatHandler {
       try {
         this.dispatch({ type: 'ADD_THINKING_STEP', payload: `${agent.emoji} ${agent.name} analyzing...` });
 
-        // Enhanced context building with statistical analysis
-        const enhancedContext = await this.buildEnhancedContext(context, agentKey);
+        // Enhanced context building with statistical analysis (pass user message)
+        const enhancedContext = await this.buildEnhancedContext(context, agentKey, sanitizedMessage);
         const systemPrompt = this.buildEnhancedSystemPrompt(enhancedContext, agent);
 
         this.conversationHistory.push({ role: "user", content: sanitizedMessage });
@@ -689,6 +689,55 @@ class EnhancedMultiAgentChatHandler {
             this.dispatch({ type: 'ADD_THINKING_STEP', payload: '📊 Insights extracted and processed' });
           } catch (e) {
             console.error('Failed to parse report data:', e);
+          }
+        }
+
+        // If EDA agent, synthesize a deterministic statistical summary from actual data (prevents generic how-to replies)
+        if (agentKey === 'eda' && enhancedContext.statisticalAnalysis) {
+          try {
+            const stats = enhancedContext.statisticalAnalysis.summary;
+            const trend = enhancedContext.statisticalAnalysis.trend;
+            const quality = enhancedContext.statisticalAnalysis.quality;
+            const outliers = enhancedContext.statisticalAnalysis.statistical?.outliers || { indices: [], values: [] };
+
+            const reportData = {
+              title: 'EDA Results',
+              keyFindings: [
+                `Mean: ${Number(stats.mean || stats.descriptive?.mean || 0).toFixed(2)}`,
+                `Std Dev: ${Number(stats.standardDeviation || stats.descriptive?.standardDeviation || 0).toFixed(2)}`,
+                `Trend: ${trend?.direction || 'stable'} (confidence ${(trend?.confidence || 0).toFixed(2)})`
+              ],
+              dataOverview: {
+                records: context.selectedLob?.recordCount || (enhancedContext.dataPoints || []).length,
+                mean: Number(stats.mean || stats.descriptive?.mean || 0),
+                stdDev: Number(stats.standardDeviation || stats.descriptive?.standardDeviation || 0),
+                min: stats.descriptive?.range?.min ?? null,
+                max: stats.descriptive?.range?.max ?? null,
+                quality: quality?.score ?? null
+              },
+              outlierSummary: {
+                count: Array.isArray(outliers.values) ? outliers.values.length : 0,
+                indices: outliers.indices || []
+              },
+              businessInsights: []
+            };
+
+            if (!aggregatedInsights[agentKey]) aggregatedInsights[agentKey] = {};
+            aggregatedInsights[agentKey] = {
+              ...aggregatedInsights[agentKey],
+              agentName: agent.name,
+              agentEmoji: agent.emoji,
+              summary: `${reportData.dataOverview.records} records, mean ${reportData.dataOverview.mean.toFixed(2)}, std ${reportData.dataOverview.stdDev.toFixed(2)}`,
+              fullResponse: aiResponse,
+              ...reportData
+            };
+
+            // Ensure finalReportData for single-agent flows
+            if (agents.length === 1) finalReportData = reportData;
+
+            this.dispatch({ type: 'ADD_THINKING_STEP', payload: '📊 Deterministic EDA summary generated' });
+          } catch (e) {
+            console.error('Failed to synthesize EDA report:', e);
           }
         }
 
@@ -974,32 +1023,54 @@ class EnhancedMultiAgentChatHandler {
     };
   }
 
-  private async buildEnhancedContext(context: any, agentKey: string) {
-    let enhancedContext = { ...context };
+  private async buildEnhancedContext(context: any, agentKey: string, userMessage: string = '') {
+    let enhancedContext: any = { ...context };
 
-    // Add statistical analysis if data is available
-    if (context.selectedLob?.hasData && context.selectedLob?.mockData) {
-      const dataPoints: DataPoint[] = context.selectedLob.mockData.map((item: any) => ({
-        date: new Date(item.Date),
-        value: item.Value,
-        orders: item.Orders
-      }));
+    // Prefer actual backend timeSeriesData if present
+    const raw = context.selectedLob?.timeSeriesData || context.selectedLob?.mockData || [];
+    const dataPoints: DataPoint[] = (raw || []).map((item: any) => ({
+      date: new Date(item.Date),
+      value: (item.Value !== undefined && item.Value !== null) ? Number(item.Value) : null,
+      orders: item.Orders !== undefined ? Number(item.Orders) : undefined
+    })).filter(d => d.value !== null);
 
-      // Generate statistical insights
-      if (agentKey === 'eda' || agentKey === 'insights') {
+    enhancedContext.dataPoints = dataPoints;
+
+    // Only compute heavy stats for EDA or Insights requests
+    if ((agentKey === 'eda' || agentKey === 'insights') && dataPoints.length > 0) {
+      // Use the StatisticalAnalyzer to compute summaries
+      const summary = statisticalAnalyzer.generateSummary(dataPoints, false);
+      const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
+      const seasonality = statisticalAnalyzer.analyzeSeasonality(dataPoints);
+      const qualityReport = insightsGenerator.generateDataQualityReport(dataPoints);
+
+      // Outlier detection only when explicitly asked by user (avoid unsolicited outlier mentions)
+      const wantsOutliers = /\b(outlier|anomal|quality\s*check)\b/i.test(userMessage);
+      let outlierResult = { indices: [], values: [], method: 'iqr' };
+      if (wantsOutliers) {
         const values = dataPoints.map(d => d.value);
-        const statisticalSummary = statisticalAnalyzer.calculateStatisticalSummary(values);
-        const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
-        const seasonalityAnalysis = statisticalAnalyzer.analyzeSeasonality(dataPoints);
-        const qualityReport = insightsGenerator.generateDataQualityReport(dataPoints);
-
-        enhancedContext.statisticalAnalysis = {
-          summary: statisticalSummary,
-          trend: trendAnalysis,
-          seasonality: seasonalityAnalysis,
-          quality: qualityReport
-        };
+        outlierResult = statisticalAnalyzer.detectOutliers(values, 'iqr');
       }
+
+      enhancedContext.statisticalAnalysis = {
+        statistical: {
+          mean: summary.descriptive.mean,
+          standardDeviation: summary.descriptive.standardDeviation,
+          skewness: summary.distribution.skewness,
+          kurtosis: summary.distribution.kurtosis,
+          quartiles: summary.descriptive.quartiles,
+          outliers: outlierResult
+        },
+        summary: {
+          mean: summary.descriptive.mean,
+          median: summary.descriptive.median,
+          standardDeviation: summary.descriptive.standardDeviation,
+          range: summary.descriptive.range
+        },
+        trend: trendAnalysis,
+        seasonality,
+        quality: qualityReport
+      };
     }
 
     return enhancedContext;
