@@ -452,9 +452,9 @@ class EnhancedMultiAgentChatHandler {
       ];
     }
     // COMPLETE FORECASTING WORKFLOW - Full ML Pipeline
-    else if (/(forecast|predict|future|projection|run.*forecast)/i.test(lowerMessage)) {
+    else if (/(run|start|generate|create)\s+(a\s+)?forecast/i.test(lowerMessage) || /run.*forecast|generate.*forecast|start.*forecast/i.test(lowerMessage)) {
       selectedAgents.push('eda', 'preprocessing', 'modeling', 'validation', 'forecasting', 'insights');
-      reasoning = 'Complete forecasting pipeline initiated - EDA → Preprocessing → ML Training → Testing → Evaluation → Forecasting → Dashboard';
+      reasoning = 'Forecasting pipeline initiated explicitly by user';
       workflow = [
         { id: 'step-1', name: 'Data Analysis (EDA)', status: 'pending', dependencies: [], estimatedTime: '30s', details: 'Analyzing patterns, trends, and data quality', agent: 'Data Explorer' },
         { id: 'step-2', name: 'Data Preprocessing', status: 'pending', dependencies: ['step-1'], estimatedTime: '25s', details: 'Cleaning data, handling missing values, feature engineering', agent: 'Data Engineer' },
@@ -465,6 +465,13 @@ class EnhancedMultiAgentChatHandler {
       ];
     }
     // Business insights specifically requested
+    else if (/(how\s+reliable|reliab|confidence|use.*forecast|make.*decision).*forecast/i.test(lowerMessage)) {
+      selectedAgents.push('insights');
+      reasoning = 'User asked about forecast reliability/decision-making; route to insights agent';
+      workflow = [
+        { id: 'step-1', name: 'Business Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: 'Answer forecast-related business questions', agent: 'Business Analyst' }
+      ];
+    }
     else if (/(business insight|recommendation|strategy|opportunity)/i.test(lowerMessage) && !/(forecast|explore)/i.test(lowerMessage)) {
       selectedAgents.push('insights');
       reasoning = 'Business insights and recommendations requested';
@@ -939,7 +946,7 @@ class EnhancedMultiAgentChatHandler {
         data: lobToUse.timeSeriesData,
         target: 'Value' as 'Value' | 'Orders',
         isShowing: false,
-        showOutliers: hasOutliers
+        showOutliers: false
       };
 
       // Log for debugging
@@ -1014,7 +1021,7 @@ DATA CONTEXT:
 - Data Quality: ${dq?.completeness}%
 - Trend: ${dq?.trend || 'stable'}
 - Seasonality: ${dq?.seasonality?.replace(/_/g, ' ') || 'unknown'}
-- Outliers: ${dq?.outliers || 0} detected`;
+`;
 
       // Add enhanced statistical context for relevant agents
       if (statisticalAnalysis && (agent.name.includes('Explorer') || agent.name.includes('Analyst'))) {
@@ -1729,7 +1736,7 @@ export default function EnhancedChatPanel({ className }: { className?: string })
 **What I can customize:**
 • Model selection (Prophet, XGBoost, LightGBM, etc.)
 • Forecast horizon and confidence levels
-• Feature engineering approaches
+��� Feature engineering approaches
 • Business context and objectives
 
 **Estimated Time:** ${requirements.estimatedTime}
