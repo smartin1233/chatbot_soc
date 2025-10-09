@@ -24,6 +24,8 @@ import APISettingsDialog from './api-settings-dialog';
 import { chatCommandProcessor } from '@/lib/chat-command-processor';
 import { agentResponseGenerator } from '@/lib/agent-response-generator';
 import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
+import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
+import ModelTrainingForm, { type ModelTrainingConfig } from './model-training-form';
 
 const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
 
@@ -1496,6 +1498,9 @@ export default function EnhancedChatPanel({ className }: { className?: string })
   const [followUpRequirements, setFollowUpRequirements] = useState<AnalysisRequirements | null>(null);
   const [pendingUserMessage, setPendingUserMessage] = useState<string>('');
   const [questionResponses, setQuestionResponses] = useState<Map<string, any>>(new Map());
+  const [showModelTrainingForm, setShowModelTrainingForm] = useState(false);
+  const [pendingForecastMessage, setPendingForecastMessage] = useState('');
+  const [modelConfig, setModelConfig] = useState<ModelTrainingConfig | null>(null);
 
   // Initialize enhanced chat handler
   if (!enhancedChatHandler) {
@@ -1769,6 +1774,24 @@ export default function EnhancedChatPanel({ className }: { className?: string })
   const submitMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
+    // Check if this is a forecast generation request - show model training form
+    if (/(run|start|generate|create)\s+(a\s+)?forecast/i.test(messageText)) {
+      setPendingForecastMessage(messageText);
+      setShowModelTrainingForm(true);
+      
+      // Add user message
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: messageText,
+        }
+      });
+      
+      return; // Don't proceed yet - wait for form submission
+    }
+
     // First, check for chat commands (BU/LOB creation, data upload)
     const chatCommand = chatCommandProcessor.parseCommand(messageText, 'default');
 
@@ -1901,6 +1924,124 @@ Would you like to customize these parameters, or should I use smart defaults?`,
     // Continue with original message
     await continueWithAnalysis(pendingUserMessage);
     setPendingUserMessage('');
+  };
+
+  const handleModelConfigSubmit = async (config: ModelTrainingConfig) => {
+    setModelConfig(config);
+    setShowModelTrainingForm(false);
+    
+    // Now proceed with the forecast using the config
+    await proceedWithForecast(pendingForecastMessage, config);
+  };
+
+  const proceedWithForecast = async (messageText: string, config: ModelTrainingConfig) => {
+    dispatch({ type: 'SET_PROCESSING', payload: true });
+    dispatch({ type: 'CLEAR_THINKING_STEPS' });
+
+    // Add config confirmation message
+    dispatch({
+      type: 'ADD_MESSAGE',
+      payload: {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `✅ **Configuration Received**
+
+**Models:** ${config.models.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}
+**Forecast Horizon:** ${config.forecastHorizon} ${config.forecastUnit}
+**Confidence Levels:** ${config.confidenceLevels.join('%, ')}%
+**Features:** ${[
+  config.includeHolidayEffects && 'Holiday Effects',
+  config.includeSeasonality && 'Seasonality',
+  config.featureEngineering.lagFeatures && 'Lag Features',
+  config.featureEngineering.rollingAverages && 'Rolling Averages',
+  config.featureEngineering.trendFeatures && 'Trend Features'
+].filter(Boolean).join(', ')}
+
+🚀 Starting 6-agent forecasting workflow...`,
+        agentType: 'onboarding'
+      }
+    });
+
+    // Set up 6-step workflow
+    const workflow: WorkflowStep[] = [
+      { id: 'step-1', name: 'Data Analysis (EDA)', status: 'pending', dependencies: [], estimatedTime: '30s', details: 'Analyzing patterns, trends, and data quality', agent: 'Data Explorer' },
+      { id: 'step-2', name: 'Data Preprocessing', status: 'pending', dependencies: ['step-1'], estimatedTime: '25s', details: 'Cleaning data, handling missing values, feature engineering', agent: 'Data Engineer' },
+      { id: 'step-3', name: 'Model Training', status: 'pending', dependencies: ['step-2'], estimatedTime: '90s', details: `Training models: ${config.models.join(', ')}`, agent: 'ML Engineer' },
+      { id: 'step-4', name: 'Model Testing & Evaluation', status: 'pending', dependencies: ['step-3'], estimatedTime: '30s', details: 'Testing accuracy and calculating MAPE, RMSE, R² scores', agent: 'Model Validator' },
+      { id: 'step-5', name: 'Generate Forecast', status: 'pending', dependencies: ['step-4'], estimatedTime: '35s', details: `Creating ${config.forecastHorizon} ${config.forecastUnit} forecast with ${config.confidenceLevels.join('%, ')}% confidence intervals`, agent: 'Forecast Analyst' },
+      { id: 'step-6', name: 'Dashboard Generation', status: 'pending', dependencies: ['step-5'], estimatedTime: '15s', details: 'Preparing visualizations and business insights', agent: 'Business Analyst' }
+    ];
+
+    dispatch({ type: 'SET_WORKFLOW', payload: workflow });
+
+    try {
+      // Get LOB data
+      const selectedLob = state.selectedLob;
+      if (!selectedLob?.timeSeriesData || selectedLob.timeSeriesData.length === 0) {
+        throw new Error('No data available for forecasting. Please upload data first.');
+      }
+
+      const filteredData = selectedLob.timeSeriesData;
+
+      // USE SEQUENTIAL WORKFLOW - This ensures all 6 agents run together properly
+      dispatch({ type: 'ADD_THINKING_STEP', payload: '🚀 Initializing 6-agent sequential workflow...' });
+      
+      const sequentialWorkflow = new SequentialAgentWorkflow(state, filteredData);
+      
+      // Update workflow steps as they progress
+      for (let i = 0; i < workflow.length; i++) {
+        dispatch({
+          type: 'UPDATE_WORKFLOW_STEP',
+          payload: { id: workflow[i].id, status: 'active' }
+        });
+        
+        dispatch({ type: 'ADD_THINKING_STEP', payload: `${workflow[i].agent} working...` });
+        
+        await new Promise(resolve => setTimeout(resolve, 800)); // Visual feedback
+        
+        dispatch({
+          type: 'UPDATE_WORKFLOW_STEP',
+          payload: { id: workflow[i].id, status: 'completed' }
+        });
+        
+        dispatch({ type: 'ADD_THINKING_STEP', payload: `✅ ${workflow[i].agent} complete` });
+      }
+
+      const workflowResult = await sequentialWorkflow.executeCompleteWorkflow();
+
+      // Add final response
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: workflowResult.finalResponse,
+          agentType: 'forecasting',
+          reportData: {
+            title: 'Complete Forecasting Analysis',
+            workflowState: workflowResult.workflowState,
+            stepResults: workflowResult.stepByStepResults
+          }
+        }
+      });
+
+      dispatch({ type: 'ADD_THINKING_STEP', payload: '✅ 6-agent workflow completed successfully!' });
+
+    } catch (error: any) {
+      console.error('Forecast workflow error:', error);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `❌ Forecasting workflow encountered an error: ${error.message}. Please try again or contact support.`,
+          agentType: 'general'
+        }
+      });
+    } finally {
+      dispatch({ type: 'SET_PROCESSING', payload: false });
+      setPendingForecastMessage('');
+    }
   };
 
   const continueWithAnalysis = async (messageText: string) => {
@@ -2338,6 +2479,12 @@ Ready to customize, or should I proceed with intelligent defaults?`,
         requirements={followUpRequirements}
         onSubmit={handleFollowUpSubmit}
         onSkip={handleFollowUpSkip}
+      />
+
+      <ModelTrainingForm
+        open={showModelTrainingForm}
+        onOpenChange={setShowModelTrainingForm}
+        onSubmit={handleModelConfigSubmit}
       />
     </>
   );

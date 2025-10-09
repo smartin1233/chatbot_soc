@@ -732,8 +732,7 @@ class EnhancedMultiAgentChatHandler {
 
       // Generate statistical insights
       if (agentKey === 'eda' || agentKey === 'insights') {
-        const values = dataPoints.map(d => d.value);
-        const statisticalSummary = statisticalAnalyzer.calculateStatisticalSummary(values);
+        const statisticalSummary = statisticalAnalyzer.generateSummary(dataPoints);
         const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
         const seasonalityAnalysis = statisticalAnalyzer.analyzeSeasonality(dataPoints);
         const qualityReport = insightsGenerator.generateDataQualityReport(dataPoints);

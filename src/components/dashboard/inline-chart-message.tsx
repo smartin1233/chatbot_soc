@@ -31,7 +31,7 @@ export default function InlineChartMessage({
   onExpand,
   onRefresh
 }: InlineChartMessageProps) {
-  
+
   // Analyze query to determine chart configuration
   const chartConfig: ChartConfig = React.useMemo(() => {
     return dynamicChartGenerator.analyzeQuery(query);
@@ -73,7 +73,7 @@ export default function InlineChartMessage({
             </div>
           )}
         </div>
-        
+
         <div className="flex items-center gap-1">
           {onRefresh && (
             <Button
@@ -126,8 +126,8 @@ export default function InlineChartMessage({
           )}
           {statisticalAnalysis.trend?.direction && (
             <div>
-              • Trend: {statisticalAnalysis.trend.direction} 
-              {statisticalAnalysis.trend.linearRegression?.rSquared && 
+              • Trend: {statisticalAnalysis.trend.direction}
+              {statisticalAnalysis.trend.linearRegression?.rSquared &&
                 ` (R² = ${statisticalAnalysis.trend.linearRegression.rSquared.toFixed(3)})`
               }
             </div>

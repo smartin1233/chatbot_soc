@@ -91,6 +91,8 @@ export class SequentialAgentWorkflow {
     const values = rawData.map(item => item.Value || item.value || 0);
     const dates = rawData.map(item => new Date(item.Date || item.date));
     
+    const outlierCount = this.detectOutlierCount(values);
+    
     const analysisResults = {
       recordCount: rawData.length,
       statistics: {
@@ -100,7 +102,8 @@ export class SequentialAgentWorkflow {
         stdDev: this.calculateStandardDeviation(values)
       },
       trend: this.analyzeTrend(values),
-      dataQuality: this.assessDataQuality(rawData)
+      dataQuality: this.assessDataQuality(rawData),
+      outliers: outlierCount
     };
 
     this.currentState.analysisResults = analysisResults;
@@ -116,6 +119,7 @@ export class SequentialAgentWorkflow {
 • **Mean Value:** ${analysisResults.statistics.mean.toLocaleString()}
 • **Range:** ${analysisResults.statistics.min.toLocaleString()} - ${analysisResults.statistics.max.toLocaleString()}
 • **Standard Deviation:** ${analysisResults.statistics.stdDev.toFixed(2)}
+${outlierCount > 0 ? `• **Outliers Detected:** ${outlierCount} data points` : ''}
 
 **Pattern Analysis for ${buLobContext.businessUnit}:**
 • **Trend Direction:** ${analysisResults.trend.direction} (${(analysisResults.trend.strength * 100).toFixed(0)}% confidence)
@@ -144,6 +148,14 @@ ${analysisResults.trend.direction === 'increasing' ?
       processingSteps.push(`Handled ${missingCount} missing values`);
     }
     
+    // Detect outliers from EDA results (use actual outlier count from analysis)
+    const values = rawData.map(item => item.Value || item.value || 0);
+    const outlierCount = this.detectOutlierCount(values);
+    
+    if (outlierCount > 0) {
+      processingSteps.push(`Identified ${outlierCount} outliers (retained for model robustness)`);
+    }
+    
     // Create features
     processedData = this.createFeatures(processedData);
     processingSteps.push('Created rolling averages and lag features');
@@ -152,6 +164,7 @@ ${analysisResults.trend.direction === 'increasing' ?
       originalRecords: rawData.length,
       processedRecords: processedData.length,
       processingSteps,
+      outliersDetected: outlierCount,
       qualityImprovement: 15 // Simulated improvement
     };
 
@@ -359,6 +372,19 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
       score: Math.floor(completeness * 0.9 + Math.random() * 10),
       completeness: Math.floor(completeness)
     };
+  }
+
+  private detectOutlierCount(values: number[]): number {
+    if (values.length < 4) return 0;
+    
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+    
+    return values.filter(v => v < lowerBound || v > upperBound).length;
   }
 
   private handleMissingValues(data: any[]): any[] {

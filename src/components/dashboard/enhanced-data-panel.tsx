@@ -242,15 +242,14 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       }));
 
       // Comprehensive analysis using real data
-      const values = dataPoints.map(d => d.value);
-      const statisticalSummary = statisticalAnalyzer.calculateStatisticalSummary(values);
+      const statisticalSummary = statisticalAnalyzer.generateSummary(dataPoints);
       const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
       const seasonalityAnalysis = statisticalAnalyzer.analyzeSeasonality(dataPoints);
       const qualityReport = insightsGenerator.generateDataQualityReport(dataPoints);
 
       // Only generate insights based on what has been analyzed in chat
       const businessInsights = state.analyzedData.hasForecasting
-        ? insightsGenerator.generateForecastInsights(dataPoints, {})
+        ? insightsGenerator.generateForecastInsights(statisticalSummary)
         : null;
 
       const results = {

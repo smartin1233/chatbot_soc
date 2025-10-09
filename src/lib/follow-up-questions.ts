@@ -28,38 +28,42 @@ export class FollowUpQuestionsService {
   /**
    * Analyze user message and determine if follow-up questions are needed
    * Only triggers for requests that have meaningful customization options
+   * 
+   * NOTE: Model training/forecasting requests should use the ModelTrainingForm instead
    */
   needsFollowUpQuestions(message: string, context?: any): boolean {
     const lowerMessage = message.toLowerCase();
-    
+
+    // NEVER trigger for model training or forecast generation - these use ModelTrainingForm
+    const usesModelTrainingForm = [
+      /(run|start|generate|create)\s+(a\s+)?forecast/i,
+      /(train|build).*?(model|ml|machine learning).*?(forecast|predict)/i,
+      /(forecast|predict).*?(train|build).*?(model)/i,
+      /model.*?training/i
+    ];
+
+    if (usesModelTrainingForm.some(pattern => pattern.test(message))) {
+      return false; // Use ModelTrainingForm instead
+    }
+
     // Only trigger for specific scenarios with customization options
     const customizableScenarios = [
-      // Forecasting with specific parameters
-      /(forecast|predict|prediction).*?(days?|weeks?|months?|period|horizon)/i,
-      /(forecast|predict|prediction).*?(model|algorithm|approach|method)/i,
-      
-      // Model training with algorithm choices
-      /(train|build|create).*?(model|algorithm)/i,
-      /(model|algorithm).*?(train|build|create|select|choose)/i,
-      
-      // Complete analysis workflows
-      /(complete|comprehensive|full|end.to.end).*?(analysis|workflow|forecast)/i,
-      /(run|perform|execute).*?(complete|comprehensive|full)/i,
-      
       // Business insights with specific objectives
       /(business|strategic).*?(insight|recommendation|analysis)/i,
-      /(insight|recommendation).*?(business|strategic)/i
+      /(insight|recommendation).*?(business|strategic)/i,
+
+      // Data exploration with specific focus
+      /(explore|eda).*?(approach|method|focus|type)/i,
+      /(analyze|analysis).*?(data|patterns|trends)/i
     ];
 
     // Check if any customizable scenario matches
     const hasCustomizableScenario = customizableScenarios.some(pattern => pattern.test(message));
-    
+
     // Additional checks for complexity that warrants customization
     const hasComplexityIndicators = [
-      'model', 'algorithm', 'approach', 'method', 'strategy',
-      'days', 'weeks', 'months', 'period', 'horizon',
-      'confidence', 'accuracy', 'performance',
-      'business', 'strategic', 'planning'
+      'business', 'strategic', 'planning', 'insight', 'recommendation',
+      'explore', 'analysis', 'patterns', 'trends'
     ].some(keyword => lowerMessage.includes(keyword));
 
     return hasCustomizableScenario && hasComplexityIndicators;
@@ -77,14 +81,8 @@ export class FollowUpQuestionsService {
     }
 
     switch (analysisType) {
-      case 'forecasting':
-        return this.generateForecastingQuestions();
       case 'data_exploration':
         return this.generateExplorationQuestions();
-      case 'modeling':
-        return this.generateModelingQuestions();
-      case 'complete_analysis':
-        return this.generateCompleteAnalysisQuestions();
       case 'business_insights':
         return this.generateBusinessInsightsQuestions();
       default:
@@ -95,20 +93,7 @@ export class FollowUpQuestionsService {
   private detectAnalysisType(message: string): string | null {
     const lowerMessage = message.toLowerCase();
 
-    // Forecasting detection - only for specific forecasting requests with parameters
-    if (/(forecast|predict).*?(days?|weeks?|months?|period|horizon|model|algorithm)/i.test(message)) {
-      return 'forecasting';
-    }
-
-    // Complete analysis detection - only for comprehensive workflows
-    if (/(complete|comprehensive|full|end.to.end).*?(analysis|workflow|forecast)/i.test(message)) {
-      return 'complete_analysis';
-    }
-
-    // Modeling detection - only when specifically asking about models/algorithms
-    if (/(train|build|create).*?(model|algorithm)|model.*?(train|build|selection|choose)/i.test(message)) {
-      return 'modeling';
-    }
+    // NOTE: Forecasting and modeling use ModelTrainingForm, not follow-up questions
 
     // Business insights detection - only for strategic business requests
     if (/(business|strategic).*?(insight|recommendation|analysis)/i.test(message)) {
@@ -116,96 +101,14 @@ export class FollowUpQuestionsService {
     }
 
     // Data exploration - only if asking for specific exploration approaches
-    if (/(explore|eda).*?(approach|method|focus|type)/i.test(message)) {
+    if (/(explore|eda|analyze).*?(approach|method|focus|type|data|patterns)/i.test(message)) {
       return 'data_exploration';
     }
 
     return null;
   }
 
-  private generateForecastingQuestions(): AnalysisRequirements {
-    return {
-      analysisType: 'forecasting',
-      priority: 'high',
-      estimatedTime: '3-5 minutes',
-      questions: [
-        {
-          id: 'forecast_horizon',
-          question: 'How many days ahead would you like to forecast?',
-          type: 'single_choice',
-          options: [
-            '7 days (1 week)',
-            '14 days (2 weeks)', 
-            '30 days (1 month)',
-            '60 days (2 months)',
-            '90 days (3 months)',
-            'Custom period'
-          ],
-          required: true,
-          category: 'timeline'
-        },
-        {
-          id: 'forecast_model',
-          question: 'Which forecasting approach would you prefer?',
-          type: 'single_choice',
-          options: [
-            'Automatic (I\'ll choose the best model)',
-            'Prophet (Good for seasonal data)',
-            'XGBoost (Machine learning approach)',
-            'LightGBM (Fast and accurate)',
-            'Ensemble (Multiple models combined)'
-          ],
-          required: true,
-          category: 'methodology'
-        },
-        {
-          id: 'confidence_level',
-          question: 'What confidence level do you need for predictions?',
-          type: 'single_choice',
-          options: [
-            '80% (Wider range, more certainty)',
-            '90% (Balanced)',
-            '95% (Narrow range, high precision)',
-            '99% (Maximum precision)'
-          ],
-          required: true,
-          category: 'accuracy'
-        },
-        {
-          id: 'business_context',
-          question: 'What will you use these forecasts for?',
-          type: 'multiple_choice',
-          options: [
-            'Inventory planning',
-            'Budget planning',
-            'Staffing decisions', 
-            'Marketing campaigns',
-            'Strategic planning',
-            'Risk assessment',
-            'Other'
-          ],
-          required: false,
-          category: 'application'
-        },
-        {
-          id: 'seasonal_factors',
-          question: 'Are there specific seasonal patterns I should consider?',
-          type: 'multiple_choice',
-          options: [
-            'Holiday effects',
-            'Weekend patterns',
-            'Monthly cycles',
-            'Quarterly trends',
-            'Annual seasonality',
-            'External events',
-            'No specific patterns'
-          ],
-          required: false,
-          category: 'patterns'
-        }
-      ]
-    };
-  }
+
 
   private generateExplorationQuestions(): AnalysisRequirements {
     return {
@@ -279,156 +182,9 @@ export class FollowUpQuestionsService {
     };
   }
 
-  private generateModelingQuestions(): AnalysisRequirements {
-    return {
-      analysisType: 'modeling',
-      priority: 'high',
-      estimatedTime: '4-6 minutes',
-      questions: [
-        {
-          id: 'model_type',
-          question: 'What type of model would you like to build?',
-          type: 'single_choice',
-          options: [
-            'Forecasting model (predict future values)',
-            'Classification model (categorize data)',
-            'Regression model (predict continuous values)',
-            'Anomaly detection (identify outliers)',
-            'Let me choose the best approach'
-          ],
-          required: true,
-          category: 'methodology'
-        },
-        {
-          id: 'accuracy_priority',
-          question: 'What\'s most important for your model?',
-          type: 'single_choice',
-          options: [
-            'Highest accuracy possible',
-            'Balanced accuracy and speed',
-            'Fast predictions',
-            'Explainable results',
-            'Robust to data changes'
-          ],
-          required: true,
-          category: 'priorities'
-        },
-        {
-          id: 'validation_approach',
-          question: 'How should I validate the model performance?',
-          type: 'single_choice',
-          options: [
-            'Time series cross-validation (recommended)',
-            'Random cross-validation',
-            'Hold-out test set',
-            'Walk-forward validation',
-            'Custom validation approach'
-          ],
-          required: true,
-          category: 'validation'
-        },
-        {
-          id: 'feature_engineering',
-          question: 'Should I create additional features from your data?',
-          type: 'multiple_choice',
-          options: [
-            'Lag features (past values)',
-            'Rolling averages',
-            'Seasonal indicators',
-            'Trend components',
-            'Holiday effects',
-            'External factors',
-            'Keep it simple'
-          ],
-          required: false,
-          category: 'features'
-        }
-      ]
-    };
-  }
 
-  private generateCompleteAnalysisQuestions(): AnalysisRequirements {
-    return {
-      analysisType: 'complete_analysis',
-      priority: 'high',
-      estimatedTime: '5-8 minutes',
-      questions: [
-        {
-          id: 'analysis_depth',
-          question: 'How comprehensive should the analysis be?',
-          type: 'single_choice',
-          options: [
-            'Full analysis (exploration + modeling + forecasting + insights)',
-            'Quick comprehensive (key insights across all areas)',
-            'Focus on forecasting with basic exploration',
-            'Focus on business insights with supporting analysis',
-            'Custom workflow'
-          ],
-          required: true,
-          category: 'scope'
-        },
-        {
-          id: 'forecast_horizon_complete',
-          question: 'What forecasting horizon do you need?',
-          type: 'single_choice',
-          options: [
-            '1-2 weeks (operational planning)',
-            '1 month (tactical planning)',
-            '3 months (strategic planning)',
-            '6-12 months (long-term planning)',
-            'Multiple horizons'
-          ],
-          required: true,
-          category: 'timeline'
-        },
-        {
-          id: 'business_objectives',
-          question: 'What are your main business objectives?',
-          type: 'multiple_choice',
-          options: [
-            'Improve forecast accuracy',
-            'Identify growth opportunities',
-            'Risk management',
-            'Cost optimization',
-            'Resource planning',
-            'Performance monitoring',
-            'Strategic decision making'
-          ],
-          required: true,
-          category: 'objectives'
-        },
-        {
-          id: 'decision_timeline',
-          question: 'When do you need to make business decisions based on this analysis?',
-          type: 'single_choice',
-          options: [
-            'Immediately (today)',
-            'This week',
-            'Next 2 weeks',
-            'Next month',
-            'Ongoing basis'
-          ],
-          required: false,
-          category: 'urgency'
-        },
-        {
-          id: 'stakeholder_level',
-          question: 'Who will be using these insights?',
-          type: 'multiple_choice',
-          options: [
-            'Executive leadership',
-            'Department managers',
-            'Operations team',
-            'Data analysts',
-            'External stakeholders',
-            'Just me'
-          ],
-          required: false,
-          category: 'audience'
-        }
-      ]
-    };
-  }
+
+
 
   private generateBusinessInsightsQuestions(): AnalysisRequirements {
     return {
@@ -533,26 +289,17 @@ export class FollowUpQuestionsService {
    * Generate analysis prompt based on user responses
    */
   generateAnalysisPrompt(
-    analysisType: string, 
-    responses: UserResponse[], 
+    analysisType: string,
+    responses: UserResponse[],
     originalMessage: string
   ): string {
     const responseMap = new Map(responses.map(r => [r.questionId, r]));
-    
+
     let prompt = `User requested: ${originalMessage}\n\nAnalysis Configuration:\n`;
-    
+
     switch (analysisType) {
-      case 'forecasting':
-        prompt += this.generateForecastingPrompt(responseMap);
-        break;
       case 'data_exploration':
         prompt += this.generateExplorationPrompt(responseMap);
-        break;
-      case 'modeling':
-        prompt += this.generateModelingPrompt(responseMap);
-        break;
-      case 'complete_analysis':
-        prompt += this.generateCompleteAnalysisPrompt(responseMap);
         break;
       case 'business_insights':
         prompt += this.generateBusinessInsightsPrompt(responseMap);
@@ -562,23 +309,7 @@ export class FollowUpQuestionsService {
     return prompt;
   }
 
-  private generateForecastingPrompt(responses: Map<string, UserResponse>): string {
-    const horizon = responses.get('forecast_horizon')?.answer || '30 days (1 month)';
-    const model = responses.get('forecast_model')?.answer || 'Automatic';
-    const confidence = responses.get('confidence_level')?.answer || '90%';
-    const context = responses.get('business_context')?.answer || [];
-    const seasonal = responses.get('seasonal_factors')?.answer || [];
 
-    return `
-Forecasting Specifications:
-- Forecast Horizon: ${horizon}
-- Model Preference: ${model}
-- Confidence Level: ${confidence}
-- Business Context: ${Array.isArray(context) ? context.join(', ') : context}
-- Seasonal Considerations: ${Array.isArray(seasonal) ? seasonal.join(', ') : seasonal}
-
-Please generate forecasts with these specifications and provide detailed business insights.`;
-  }
 
   private generateExplorationPrompt(responses: Map<string, UserResponse>): string {
     const focus = responses.get('exploration_focus')?.answer || [];
@@ -596,39 +327,9 @@ Data Exploration Specifications:
 Please conduct thorough exploratory data analysis with focus on these areas.`;
   }
 
-  private generateModelingPrompt(responses: Map<string, UserResponse>): string {
-    const modelType = responses.get('model_type')?.answer || 'Let me choose the best approach';
-    const priority = responses.get('accuracy_priority')?.answer || 'Balanced accuracy and speed';
-    const validation = responses.get('validation_approach')?.answer || 'Time series cross-validation';
-    const features = responses.get('feature_engineering')?.answer || [];
 
-    return `
-Modeling Specifications:
-- Model Type: ${modelType}
-- Priority: ${priority}
-- Validation Approach: ${validation}
-- Feature Engineering: ${Array.isArray(features) ? features.join(', ') : features}
 
-Please build and validate models according to these specifications.`;
-  }
 
-  private generateCompleteAnalysisPrompt(responses: Map<string, UserResponse>): string {
-    const depth = responses.get('analysis_depth')?.answer || 'Full analysis';
-    const horizon = responses.get('forecast_horizon_complete')?.answer || '1 month';
-    const objectives = responses.get('business_objectives')?.answer || [];
-    const timeline = responses.get('decision_timeline')?.answer || 'Next month';
-    const stakeholders = responses.get('stakeholder_level')?.answer || [];
-
-    return `
-Complete Analysis Specifications:
-- Analysis Depth: ${depth}
-- Forecast Horizon: ${horizon}
-- Business Objectives: ${Array.isArray(objectives) ? objectives.join(', ') : objectives}
-- Decision Timeline: ${timeline}
-- Stakeholders: ${Array.isArray(stakeholders) ? stakeholders.join(', ') : stakeholders}
-
-Please conduct comprehensive analysis covering all specified areas with business focus.`;
-  }
 
   private generateBusinessInsightsPrompt(responses: Map<string, UserResponse>): string {
     const focus = responses.get('insight_focus')?.answer || [];
