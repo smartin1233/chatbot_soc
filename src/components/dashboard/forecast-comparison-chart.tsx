@@ -157,7 +157,7 @@ export default function ForecastComparisonChart({
         )}
 
         {/* Recent Comparisons */}
-        {actualVsForecast.length > 0 && (
+        {/* {actualVsForecast.length > 0 && (
           <div className="space-y-2">
             <span className="text-sm font-medium">Recent Comparisons</span>
             <div className="bg-background/50 rounded p-3">
@@ -204,10 +204,10 @@ export default function ForecastComparisonChart({
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Confidence Bounds */}
-        {forecastData.some(
+        {/* {forecastData.some(
           (d) => d.ForecastLower && d.ForecastUpper
         ) && (
             <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function ForecastComparisonChart({
                 </div>
               </div>
             </div>
-          )}
+          )} */}
       </CardContent>
     </Card>
   );

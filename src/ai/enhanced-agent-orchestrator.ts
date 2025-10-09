@@ -28,6 +28,17 @@ export interface EnhancedOrchestratorOutput {
   confidence: number;
   nextPhase?: string;
   estimatedCompletion?: Date;
+  agentResponses?: AgentResponse[];
+}
+
+export interface AgentResponse {
+  agentId: string;
+  agentType: string;
+  content: string;
+  confidence: number;
+  uniqueInsights: string[];
+  metrics: Record<string, any>;
+  timestamp: Date;
 }
 
 export interface EnhancedAgent extends Agent {
@@ -81,6 +92,7 @@ export class EnhancedAgentOrchestrator {
   private recommendations: ActionableRecommendation[] = [];
   private currentPhase: string = 'onboarding';
   private sessionState: Map<string, any> = new Map();
+  private agentResponses: AgentResponse[] = [];
 
   // Predefined workflow phases for different scenarios
   private workflowPhases: Record<string, WorkflowPhase[]> = {

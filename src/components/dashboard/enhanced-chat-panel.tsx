@@ -2139,6 +2139,20 @@ Ready to customize, or should I proceed with intelligent defaults?`,
                     autoComplete="off"
                     disabled={isAssistantTyping}
                     rows={1}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        const form = e.currentTarget.closest('form');
+                        if (form) {
+                          const formData = new FormData(form);
+                          const userInput = formData.get('message') as string;
+                          if (userInput.trim()) {
+                            form.reset();
+                            submitMessage(userInput);
+                          }
+                        }
+                      }
+                    }}
                   />
                   <Button
                     type="submit"

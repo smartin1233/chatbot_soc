@@ -35,25 +35,38 @@ interface DataVisualizerProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const dataPoint = payload[0].payload;
-    
+
+    // Check if this is a forecast point or actual data point
+    const isForecastPoint = dataPoint.Forecast !== undefined && dataPoint.Forecast > 0;
+
     return (
       <div className="bg-background border p-2 rounded-lg shadow-lg">
         <p className="font-bold">{dataPoint.formattedDate}</p>
-        {dataPoint.Value !== undefined && (
-          <p className="text-sm text-foreground">Value: {dataPoint.Value?.toLocaleString()}</p>
+
+        {/* Show Actual data label for historical points */}
+        {!isForecastPoint && dataPoint.Value !== undefined && dataPoint.Value !== null && (
+          <p className="text-sm text-primary font-semibold">Actual: {dataPoint.Value?.toLocaleString()}</p>
         )}
-        {dataPoint.Orders !== undefined && dataPoint.Orders > 0 && (
+
+        {/* Show Orders for actual data points */}
+        {!isForecastPoint && dataPoint.Orders !== undefined && dataPoint.Orders > 0 && (
           <p className="text-sm text-muted-foreground">Orders: {dataPoint.Orders?.toLocaleString()}</p>
         )}
-        {dataPoint.Forecast !== undefined && (
+
+        {/* Show Forecast data label for forecast points */}
+        {isForecastPoint && (
           <p className="text-sm text-blue-600 font-semibold">Forecast: {dataPoint.Forecast?.toLocaleString()}</p>
         )}
-        {dataPoint.ForecastLower !== undefined && dataPoint.ForecastUpper !== undefined && (
+
+        {/* Show confidence interval for forecast points */}
+        {isForecastPoint && dataPoint.ForecastLower !== undefined && dataPoint.ForecastUpper !== undefined && (
           <p className="text-xs text-muted-foreground">
             Range: {dataPoint.ForecastLower?.toLocaleString()} - {dataPoint.ForecastUpper?.toLocaleString()}
           </p>
         )}
-        {dataPoint.isCriticalOutlier && (
+
+        {/* Show outlier warning for actual data */}
+        {!isForecastPoint && dataPoint.isCriticalOutlier && (
           <p className="text-sm text-destructive font-semibold">⚠️ Outlier Detected</p>
         )}
       </div>
@@ -148,8 +161,8 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={processedData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="dateString" 
+              <XAxis
+                dataKey="dateString"
                 tick={{ fontSize: 11 }}
                 angle={-45}
                 textAnchor="end"
@@ -158,7 +171,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
               <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              
+
               {/* Actual Data */}
               {chartType === 'line' ? (
                 <Line
@@ -177,7 +190,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   name="Actual"
                 />
               )}
-              
+
               {/* Forecast Data */}
               {hasForecast && (
                 <>
@@ -210,7 +223,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   />
                 </>
               )}
-              
+
               {/* Orders as Regressor (if available) */}
               {hasOrders && target === 'Value' && (
                 <Line
@@ -224,7 +237,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   yAxisId="right"
                 />
               )}
-              
+
               {/* Outliers as Red Dots - Only show when requested (exploration/preprocessing) */}
               {showOutliers && criticalOutliers.length > 0 && (
                 <Scatter
@@ -235,14 +248,14 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
                   name="Outliers"
                 />
               )}
-              
+
               {hasOrders && target === 'Value' && (
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
               )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
-        
+
         {/* Legend Info */}
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
@@ -252,7 +265,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
           {hasForecast && (
             <>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-0.5 bg-blue-500" style={{borderTop: '2px dashed'}}></div>
+                <div className="w-3 h-0.5 bg-blue-500" style={{ borderTop: '2px dashed' }}></div>
                 <span>Forecast</span>
               </div>
               <div className="flex items-center gap-1">
@@ -269,7 +282,7 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
           )}
           {hasOrders && target === 'Value' && (
             <div className="flex items-center gap-1">
-              <div className="w-3 h-0.5 bg-green-500" style={{borderTop: '2px dashed'}}></div>
+              <div className="w-3 h-0.5 bg-green-500" style={{ borderTop: '2px dashed' }}></div>
               <span>Orders (Regressor)</span>
             </div>
           )}

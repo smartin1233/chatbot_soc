@@ -80,13 +80,13 @@ export default function BIDashboard() {
         target: avgValue * 1.1,
         unit: ""
       },
-      total_orders: {
-        label: "Total Orders",
-        value: totalOrders.toLocaleString(),
-        change: ordersChange,
-        changeType: ordersChange > 0 ? 'positive' : ordersChange < 0 ? 'negative' : 'neutral' as const,
-        trend: ordersChange > 5 ? 'up' : ordersChange < -5 ? 'down' : 'stable' as const
-      },
+      // total_orders: {
+      //   label: "Total Orders",
+      //   value: totalOrders.toLocaleString(),
+      //   change: ordersChange,
+      //   changeType: ordersChange > 0 ? 'positive' : ordersChange < 0 ? 'negative' : 'neutral' as const,
+      //   trend: ordersChange > 5 ? 'up' : ordersChange < -5 ? 'down' : 'stable' as const
+      // },
       efficiency: {
         label: "Efficiency",
         value: efficiency.toFixed(2),

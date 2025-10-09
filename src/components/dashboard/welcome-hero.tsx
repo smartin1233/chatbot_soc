@@ -81,6 +81,14 @@ export default function WelcomeHero() {
                   placeholder="Describe what you need..."
                   className="flex-1 bg-background text-foreground placeholder:text-muted-foreground rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none overflow-hidden"
                   style={{ minHeight: "128px", height: "auto" }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (canContinue && prompt.trim()) {
+                        start();
+                      }
+                    }
+                  }}
                 />
                 <Button
                   type="submit"
