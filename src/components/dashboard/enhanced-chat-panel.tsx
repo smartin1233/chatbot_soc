@@ -25,6 +25,8 @@ import { chatCommandProcessor } from '@/lib/chat-command-processor';
 import { agentResponseGenerator } from '@/lib/agent-response-generator';
 import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
 
+const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
+
 type AgentConfig = {
   name: string;
   emoji: string;
@@ -1102,13 +1104,13 @@ DATA CONTEXT:
 
         statisticalContext = `
 ADVANCED STATISTICAL ANALYSIS:
-- Mean: ${stats.mean.toFixed(2)}, Std Dev: ${stats.standardDeviation.toFixed(2)}
-- Skewness: ${stats.skewness.toFixed(2)}, Kurtosis: ${stats.kurtosis.toFixed(2)}
-- Trend Direction: ${trend.direction} (confidence: ${(trend.confidence * 100).toFixed(1)}%)
+- Mean: ${safeFixed(stats.mean,2)}, Std Dev: ${safeFixed(stats.standardDeviation,2)}
+- Skewness: ${safeFixed(stats.skewness,2)}, Kurtosis: ${safeFixed(stats.kurtosis,2)}
+- Trend Direction: ${trend.direction} (confidence: ${trend && typeof trend.confidence === 'number' ? safeFixed(trend.confidence*100,1) + '%' : 'N/A'})
 - Seasonality: ${statisticalAnalysis.seasonality.hasSeasonality ? 'Detected' : 'Not detected'}
-- Data Quality Score: ${quality.score}/100
-- Outliers: ${stats.outliers.values.length} detected (${(stats.outliers.values.length / selectedLob.recordCount * 100).toFixed(1)}%)
-- R²: ${trend.linearRegression.rSquared.toFixed(3)}`;
+- Data Quality Score: ${quality && typeof quality.score === 'number' ? quality.score + '/100' : 'N/A'}
+- Outliers: ${(stats.outliers && stats.outliers.values) ? stats.outliers.values.length : 0} detected (${selectedLob?.recordCount ? ((stats.outliers?.values?.length || 0) / selectedLob.recordCount * 100).toFixed(1) + '%' : 'N/A'})
+- R²: ${trend.linearRegression && typeof trend.linearRegression.rSquared === 'number' ? trend.linearRegression.rSquared.toFixed(3) : 'N/A'}`;
       }
     }
 
