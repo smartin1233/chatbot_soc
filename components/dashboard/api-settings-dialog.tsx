@@ -342,6 +342,58 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                       <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cost Effective)</option>
                     </select>
                   </div>
+
+                  {/* Forecasting Options */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forecast-horizon">Forecast Horizon</Label>
+                      <select
+                        id="forecast-horizon"
+                        className="w-full p-2 border border-input rounded-md"
+                        value={(config as any).forecastHorizonDays || 30}
+                        onChange={(e) => setConfig(prev => ({ ...prev, forecastHorizonDays: Number(e.target.value) }))}
+                      >
+                        <option value={7}>7 days</option>
+                        <option value={14}>14 days</option>
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confidence">Confidence Level</Label>
+                      <select
+                        id="confidence"
+                        className="w-full p-2 border border-input rounded-md"
+                        value={(config as any).confidenceLevel || 0.95}
+                        onChange={(e) => setConfig(prev => ({ ...prev, confidenceLevel: Number(e.target.value) }))}
+                      >
+                        <option value={0.8}>80%</option>
+                        <option value={0.9}>90%</option>
+                        <option value={0.95}>95%</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Forecast Model Selection</Label>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {['Prophet','ARIMA','XGBoost','LightGBM','LSTM'].map(m => (
+                        <label key={m} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={((config as any).selectedModels || []).includes(m)}
+                            onChange={(e) => {
+                              const current = new Set((config as any).selectedModels || []);
+                              if (e.target.checked) current.add(m); else current.delete(m);
+                              setConfig(prev => ({ ...prev, selectedModels: Array.from(current) }));
+                            }}
+                          />
+                          {m}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
