@@ -147,6 +147,93 @@ Include comparative analysis report:
 Use tables for multi-entity comparisons. Highlight significant differences.`
   },
 
+  preprocessing: {
+    name: "Preprocessing Agent",
+    emoji: "🧹",
+    specialty: "Data Cleaning & Preparation",
+    keywords: ['preprocess', 'clean', 'prepare', 'missing values', 'outliers', 'normalize', 'transform'],
+    systemPrompt: `You are a data preprocessing specialist focused on data cleaning and preparation.
+
+INSTRUCTIONS FOR CUSTOMER-FRIENDLY RESPONSES:
+- Use simple, clear language for users with no prior knowledge.
+- Provide key preprocessing steps and data quality improvements as concise bullet points.
+- Avoid long paragraphs and technical jargon.
+- Focus on actionable insights the user can understand.
+- Include data quality metrics, cleaning steps, and transformations clearly.
+- Suggest next steps in simple, direct terms.
+
+REPORT GENERATION:
+Include preprocessing report:
+[REPORT_DATA]
+{
+  "title": "Data Preprocessing Report",
+  "insights": ["Missing values handled", "Outliers treated", "Data normalized"],
+  "metrics": [{"name": "Original Records", "value": "X"}, {"name": "Clean Records", "value": "Y"}],
+  "recommendations": ["Data is ready for modeling", "Consider additional feature engineering"]
+}
+[/REPORT_DATA]
+
+Be specific about data quality improvements. Quantify changes made.`
+  },
+
+  training: {
+    name: "Model Training Agent",
+    emoji: "🎓",
+    specialty: "Model Training & Optimization",
+    keywords: ['train', 'model', 'optimize', 'hyperparameter', 'cross-validation', 'fit'],
+    systemPrompt: `You are a model training specialist focused on building and optimizing predictive models.
+
+INSTRUCTIONS FOR CUSTOMER-FRIENDLY RESPONSES:
+- Use simple, clear language for users with no prior knowledge.
+- Provide key training results and model performance as concise bullet points.
+- Avoid long paragraphs and technical jargon.
+- Focus on actionable insights the user can understand.
+- Include model types tested, best parameters, and performance metrics clearly.
+- Suggest next steps in simple, direct terms.
+
+REPORT GENERATION:
+Include training report:
+[REPORT_DATA]
+{
+  "title": "Model Training Report",
+  "insights": ["Trained XGBoost, Prophet, LSTM", "XGBoost performed best", "Optimal hyperparameters found"],
+  "metrics": [{"name": "Model", "value": "XGBoost"}, {"name": "Accuracy", "value": "94.2%"}, {"name": "MAPE", "value": "5.8%"}],
+  "recommendations": ["Use XGBoost for forecasting", "Deploy model to production"]
+}
+[/REPORT_DATA]
+
+Compare multiple models. Explain why the best model was selected.`
+  },
+
+  evaluation: {
+    name: "Model Evaluation Agent",
+    emoji: "📊",
+    specialty: "Model Performance Assessment",
+    keywords: ['evaluate', 'assessment', 'performance', 'metrics', 'validation', 'test'],
+    systemPrompt: `You are a model evaluation specialist focused on assessing model performance.
+
+INSTRUCTIONS FOR CUSTOMER-FRIENDLY RESPONSES:
+- Use simple, clear language for users with no prior knowledge.
+- Provide key evaluation metrics and performance insights as concise bullet points.
+- Avoid long paragraphs and technical jargon.
+- Focus on actionable insights the user can understand.
+- Include accuracy metrics, error analysis, and confidence intervals clearly.
+- Suggest next steps in simple, direct terms.
+
+REPORT GENERATION:
+Include evaluation report:
+[REPORT_DATA]
+{
+  "title": "Model Evaluation Report",
+  "insights": ["Model accuracy is 94.2%", "Low prediction error", "Confidence intervals are tight"],
+  "metrics": [{"name": "MAPE", "value": "5.8%"}, {"name": "RMSE", "value": "123.45"}, {"name": "R²", "value": "0.942"}],
+  "recommendations": ["Model is production-ready", "Monitor performance over time"]
+}
+[/REPORT_DATA]
+
+Provide comprehensive metrics. Explain what they mean for business decisions.`
+  },
+
   general: {
     name: "General Assistant",
     emoji: "🤖",
@@ -179,16 +266,25 @@ class MultiAgentChatHandler {
     const lowerMessage = userMessage.toLowerCase();
     const selectedAgents: string[] = [];
 
-    // Define sequential workflow for forecasting
-    const forecastingWorkflow = ['eda', 'forecasting'];
+    // Define 6-agent sequential workflow for complete forecasting
+    const fullForecastingWorkflow = ['eda', 'preprocessing', 'training', 'forecasting', 'evaluation'];
 
-    // Check if message matches forecasting keywords
-    if (/(forecast|predict|train|process|clean)/i.test(lowerMessage)) {
+    // Check if message matches full forecasting workflow keywords
+    if (/(train.*model|generate.*forecast|build.*model|create.*forecast|model.*forecast)/i.test(lowerMessage)) {
       this.dispatch({
         type: 'ADD_THINKING_STEP',
-        payload: '🔄 Dynamic workflow for forecasting triggered'
+        payload: '🔄 Full 6-agent forecasting workflow triggered'
       });
-      return forecastingWorkflow;
+      return fullForecastingWorkflow;
+    }
+
+    // Check for quick forecast (skip training if model exists)
+    if (/(forecast|predict)/i.test(lowerMessage) && !/(train|build|create.*model)/i.test(lowerMessage)) {
+      this.dispatch({
+        type: 'ADD_THINKING_STEP',
+        payload: '📈 Quick forecasting workflow triggered'
+      });
+      return ['eda', 'forecasting'];
     }
 
     // Otherwise, check each agent's keywords for single agent selection
@@ -671,8 +767,21 @@ export default function ChatPanel({ className }: { className?: string }) {
           ];
         } else if (agentType === 'evaluation') {
           suggestions = [
+            "View forecast predictions",
             "Compare model performance",
             "Download evaluation report"
+          ];
+        } else if (agentType === 'training') {
+          suggestions = [
+            "Generate forecasts with trained model",
+            "Evaluate model performance",
+            "View model details"
+          ];
+        } else if (agentType === 'preprocessing') {
+          suggestions = [
+            "Train models on clean data",
+            "View data quality report",
+            "Proceed to forecasting"
           ];
         } else {
           suggestions = [
@@ -713,50 +822,50 @@ export default function ChatPanel({ className }: { className?: string }) {
           type: 'SET_ANALYZED_DATA',
           payload: { hasForecasting: true, lastAnalysisType: 'forecasting' }
         });
-        
+
         // Extract forecast metrics from response or reportData
         const metrics: any = {};
-        
+
         // Try to extract MAPE from response text (various formats)
         const mapeMatch = responseText.match(/MAPE[:\s]+(\d+\.?\d*)%?/i) ||
-                         responseText.match(/Mean Absolute Percentage Error[:\s]+(\d+\.?\d*)%?/i) ||
-                         responseText.match(/error[:\s]+(\d+\.?\d*)%/i);
+          responseText.match(/Mean Absolute Percentage Error[:\s]+(\d+\.?\d*)%?/i) ||
+          responseText.match(/error[:\s]+(\d+\.?\d*)%/i);
         if (mapeMatch) {
           metrics.mape = parseFloat(mapeMatch[1]);
         }
-        
+
         // Try to extract model name (Prophet, ARIMA, LSTM, etc.)
         const modelMatch = responseText.match(/(?:using|model|algorithm|method)[:\s]+(\w+(?:\s+\w+)?)/i) ||
-                          responseText.match(/(Prophet|ARIMA|LSTM|XGBoost|Random Forest|Linear Regression)/i);
+          responseText.match(/(Prophet|ARIMA|LSTM|XGBoost|Random Forest|Linear Regression)/i);
         if (modelMatch) {
           metrics.model = modelMatch[1].trim();
         }
-        
+
         // Try to extract accuracy
         const accuracyMatch = responseText.match(/accuracy[:\s]+(\d+\.?\d*)%?/i) ||
-                             responseText.match(/R[²2][:\s]+(\d+\.?\d*)/i);
+          responseText.match(/R[²2][:\s]+(\d+\.?\d*)/i);
         if (accuracyMatch) {
           metrics.accuracy = parseFloat(accuracyMatch[1]);
         }
-        
+
         // Try to extract RMSE
         const rmseMatch = responseText.match(/RMSE[:\s]+(\d+\.?\d*)/i);
         if (rmseMatch) {
           metrics.rmse = parseFloat(rmseMatch[1]);
         }
-        
+
         // Try to extract MAE
         const maeMatch = responseText.match(/MAE[:\s]+(\d+\.?\d*)/i);
         if (maeMatch) {
           metrics.mae = parseFloat(maeMatch[1]);
         }
-        
+
         // If reportData has metrics, use those (they override text extraction)
         if (reportData?.metrics) {
           reportData.metrics.forEach((m: any) => {
             const name = m.name.toLowerCase();
             const value = typeof m.value === 'string' ? m.value.replace(/[^\d.]/g, '') : m.value;
-            
+
             if (name.includes('mape')) {
               metrics.mape = parseFloat(value);
             } else if (name.includes('accuracy') || name.includes('r2') || name.includes('r²')) {
@@ -770,20 +879,20 @@ export default function ChatPanel({ className }: { className?: string }) {
             }
           });
         }
-        
+
         // Set default values if nothing was extracted
         if (Object.keys(metrics).length === 0) {
           metrics.mape = 8.5; // Default reasonable MAPE
           metrics.model = 'Auto-selected';
           metrics.accuracy = 91.5;
         }
-        
+
         // Dispatch forecast metrics
         dispatch({
           type: 'SET_FORECAST_METRICS',
           payload: metrics
         });
-        
+
         // Open data panel to show forecast results
         dispatch({ type: 'SET_DATA_PANEL_OPEN', payload: true });
         dispatch({ type: 'SET_DATA_PANEL_MODE', payload: 'charts' });
