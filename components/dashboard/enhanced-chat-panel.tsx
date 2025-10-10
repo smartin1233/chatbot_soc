@@ -83,7 +83,7 @@ RESPONSE FORMAT:
 NEVER include: Generic advice, code, JSON, technical formulas
 ALWAYS provide: Context-specific guidance for the selected BU/LOB`
   },
-  
+
   eda: {
     name: "Data Explorer",
     emoji: "🔬",
@@ -190,7 +190,7 @@ ALWAYS provide: Business-specific data quality solutions tailored to [BU/LOB Nam
   },
 
   modeling: {
-    name: "ML Engineer", 
+    name: "ML Engineer",
     emoji: "🤖",
     specialty: "Model Training & Selection",
     keywords: ['model', 'train', 'machine learning', 'algorithm', 'xgboost', 'prophet', 'lightgbm', 'cross validation'],
@@ -246,7 +246,7 @@ Focus on delivering production-ready models that drive [BU/LOB Name]'s business 
 
   forecasting: {
     name: "Forecast Analyst",
-    emoji: "📈", 
+    emoji: "📈",
     specialty: "Predictive Analytics & Forecasting",
     keywords: ['forecast', 'predict', 'future', 'projection', 'trend', 'time series', 'prediction intervals'],
     color: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
@@ -297,7 +297,7 @@ Focus on delivering forecasts that drive [BU/LOB Name]'s competitive advantage a
   },
 
   validation: {
-    name: "Quality Analyst", 
+    name: "Quality Analyst",
     emoji: "✅",
     specialty: "Model Validation & Testing",
     keywords: ['validate', 'test', 'accuracy', 'performance', 'metrics', 'evaluation', 'residuals'],
@@ -357,7 +357,7 @@ Focus on ensuring model reliability that supports [BU/LOB Name]'s confident busi
   insights: {
     name: "Business Analyst",
     emoji: "💡",
-    specialty: "Business Insights & Strategy",  
+    specialty: "Business Insights & Strategy",
     keywords: ['insights', 'business', 'strategy', 'impact', 'recommendations', 'opportunities', 'risks'],
     color: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
     capabilities: ["Business Intelligence", "Strategic Analysis", "Risk Assessment", "Opportunity Identification"],
@@ -539,7 +539,7 @@ class EnhancedMultiAgentChatHandler {
 
     return { agents: selectedAgents, workflow, reasoning };
   }
-  
+
   async generateEnhancedResponse(userMessage: string, context: any) {
     const startTime = Date.now();
     this.performanceMetrics.requestCount++;
@@ -585,23 +585,23 @@ class EnhancedMultiAgentChatHandler {
         // Handle sequential workflow differently
         if (agents.includes('sequential_workflow')) {
           this.dispatch({ type: 'ADD_THINKING_STEP', payload: '🔄 Executing sequential workflow with LOB data...' });
-          
+
           try {
             // Create sequential workflow with actual LOB data
             const sequentialWorkflow = new SequentialAgentWorkflow(context, filteredData);
-            
+
             // Execute complete workflow
             const workflowResult = await sequentialWorkflow.executeCompleteWorkflow();
-            
+
             finalResponse = workflowResult.finalResponse;
             finalReportData = {
               title: `Complete Analysis Report for ${context.selectedBu?.name} - ${context.selectedLob?.name}`,
               workflowState: workflowResult.workflowState,
               stepResults: workflowResult.stepByStepResults
             };
-            
+
             this.dispatch({ type: 'ADD_THINKING_STEP', payload: '✅ Sequential workflow completed successfully' });
-            
+
           } catch (error) {
             console.error('Sequential workflow error:', error);
             finalResponse = `⚠️ Error in sequential workflow: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -721,7 +721,7 @@ class EnhancedMultiAgentChatHandler {
 
   private async buildEnhancedContext(context: any, agentKey: string) {
     let enhancedContext = { ...context };
-    
+
     // Add statistical analysis if data is available
     if (context.selectedLob?.hasData && context.selectedLob?.mockData) {
       const dataPoints: DataPoint[] = context.selectedLob.mockData.map((item: any) => ({
@@ -751,15 +751,15 @@ class EnhancedMultiAgentChatHandler {
 
   private buildEnhancedSystemPrompt(context: any, agent: AgentConfig): string {
     const { selectedBu, selectedLob, statisticalAnalysis } = context;
-    
+
     // Get the actual BU/LOB names for context replacement
-    const buLobName = selectedBu && selectedLob 
+    const buLobName = selectedBu && selectedLob
       ? `${selectedBu.name} - ${selectedLob.name}`
       : 'the selected business unit';
-    
+
     // Replace [BU/LOB Name] placeholders in the agent's system prompt
     let contextualizedPrompt = agent.systemPrompt.replace(/\[BU\/LOB Name\]/g, buLobName);
-    
+
     let businessContext = 'No business data selected';
 
     if (selectedLob?.hasData) {
@@ -814,7 +814,7 @@ Your responses should be thorough and valuable for business decision-making in t
 
   private generateComprehensiveReport(insights: any) {
     const sections: any = {};
-    
+
     // Aggregate insights from all agents
     Object.keys(insights).forEach(agentKey => {
       const data = insights[agentKey];
@@ -832,7 +832,7 @@ Your responses should be thorough and valuable for business decision-making in t
 
   private synthesizeRecommendations(insights: any): string[] {
     const allRecommendations: string[] = [];
-    
+
     Object.values(insights).forEach((data: any) => {
       if (data.recommendations) {
         allRecommendations.push(...data.recommendations);
@@ -845,14 +845,14 @@ Your responses should be thorough and valuable for business decision-making in t
 
   private calculateOverallConfidence(insights: any): number {
     const confidenceScores: number[] = [];
-    
+
     Object.values(insights).forEach((data: any) => {
       if (data.confidence) confidenceScores.push(data.confidence);
       if (data.qualityScore) confidenceScores.push(data.qualityScore / 100);
     });
 
-    return confidenceScores.length > 0 
-      ? confidenceScores.reduce((a, b) => a + b, 0) / confidenceScores.length 
+    return confidenceScores.length > 0
+      ? confidenceScores.reduce((a, b) => a + b, 0) / confidenceScores.length
       : 0.5;
   }
 
@@ -868,14 +868,14 @@ Your responses should be thorough and valuable for business decision-making in t
 let enhancedChatHandler: EnhancedMultiAgentChatHandler | null = null;
 
 // Enhanced Chat Bubble with performance indicators
-function EnhancedChatBubble({ 
-  message, 
-  onSuggestionClick, 
+function EnhancedChatBubble({
+  message,
+  onSuggestionClick,
   onVisualizeClick,
   onGenerateReport,
   thinkingSteps,
   performance
-}: { 
+}: {
   message: ChatMessage;
   onSuggestionClick: (suggestion: string) => void;
   onVisualizeClick: (messageId: string) => void;
@@ -913,7 +913,7 @@ function EnhancedChatBubble({
           </AvatarFallback>
         </Avatar>
       )}
-      
+
       <div className={cn("max-w-4xl", isUser ? "order-1" : "")}>
         {/* Enhanced Agent Badge */}
         {!isUser && agentInfo && agentInfo.name !== 'BI Assistant' && (
@@ -948,11 +948,11 @@ function EnhancedChatBubble({
             </div>
           </Card>
         )}
-        
+
         <div className={cn(
           'rounded-xl p-4 text-sm max-w-none',
-          isUser 
-            ? 'bg-primary text-primary-foreground' 
+          isUser
+            ? 'bg-primary text-primary-foreground'
             : 'bg-muted/50 border'
         )}>
           {message.isTyping ? (
@@ -960,16 +960,16 @@ function EnhancedChatBubble({
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
                   {[0, 0.2, 0.4].map((delay, i) => (
-                    <span 
+                    <span
                       key={i}
-                      className="h-2 w-2 animate-pulse rounded-full bg-current" 
-                      style={{ animationDelay: `${delay}s` }} 
+                      className="h-2 w-2 animate-pulse rounded-full bg-current"
+                      style={{ animationDelay: `${delay}s` }}
                     />
                   ))}
                 </div>
                 <span className="text-xs text-muted-foreground">Enhanced AI processing...</span>
               </div>
-              
+
               {/* Enhanced Thinking Steps with Progress */}
               {thinkingSteps.length > 0 && (
                 <div className="space-y-2">
@@ -977,10 +977,10 @@ function EnhancedChatBubble({
                   {thinkingSteps.map((step, i) => {
                     const isActive = i === thinkingSteps.length - 1;
                     return (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className="flex items-center gap-3 animate-in slide-in-from-left duration-300"
-                        style={{ 
+                        style={{
                           animationDelay: `${i * 100}ms`,
                           opacity: isActive ? 1 : 0.6
                         }}
@@ -1006,13 +1006,14 @@ function EnhancedChatBubble({
             <div>
               {/* Summary always visible, details toggle */}
               <div className="mb-2" style={{ lineHeight: 1.6 }}>
-                <div dangerouslySetInnerHTML={{ __html: summary
-                  .replace(/\[WORKFLOW_PLAN\][\s\S]*?\[\/WORKFLOW_PLAN\]/, '')
-                  .replace(/\[REPORT_DATA\][\s\S]*?\[\/REPORT_DATA\]/, '')
-                  .replace(/## (.*?)$/gm, '<h3 class="text-base font-semibold mt-2 mb-1 text-foreground">$1</h3>')
-                  .replace(/\*\*(.*?)\*\*/g, '<strong className="font-semibold">$1</strong>')
-                  .replace(/• (.*?)(?=\n|$)/g, '<li className="ml-4">$1</li>')
-                  .replace(/\n/g, '<br />')
+                <div dangerouslySetInnerHTML={{
+                  __html: summary
+                    .replace(/\[WORKFLOW_PLAN\][\s\S]*?\[\/WORKFLOW_PLAN\]/, '')
+                    .replace(/\[REPORT_DATA\][\s\S]*?\[\/REPORT_DATA\]/, '')
+                    .replace(/## (.*?)$/gm, '<h3 class="text-base font-semibold mt-2 mb-1 text-foreground">$1</h3>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong className="font-semibold">$1</strong>')
+                    .replace(/• (.*?)(?=\n|$)/g, '<li className="ml-4">$1</li>')
+                    .replace(/\n/g, '<br />')
                 }} />
               </div>
               {details && details.trim().length > 0 && (
@@ -1028,18 +1029,18 @@ function EnhancedChatBubble({
             </div>
           )}
         </div>
-        
+
         {/* Enhanced Visualization Display */}
         {message.visualization?.isShowing && message.visualization.data && (
           <div className="mt-3 rounded-lg border bg-card p-3">
-            <DataVisualizer 
-              data={message.visualization.data} 
+            <DataVisualizer
+              data={message.visualization.data}
               target={message.visualization.target as 'Value' | 'Orders'}
               isRealData={true}
             />
           </div>
         )}
-        
+
         {/* Enhanced Action Buttons */}
         <div className="mt-3 space-y-2">
           {/* Suggestions */}
@@ -1074,10 +1075,10 @@ function EnhancedChatBubble({
               </Button>
             )}
             {message.canGenerateReport && onGenerateReport && (
-              <Button 
-                size="sm" 
-                variant="default" 
-                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700" 
+              <Button
+                size="sm"
+                variant="default"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                 onClick={() => onGenerateReport(message.id)}
               >
                 <FileText className="mr-2 h-3 w-3" />
@@ -1087,7 +1088,7 @@ function EnhancedChatBubble({
           </div>
         </div>
       </div>
-      
+
       {isUser && (
         <Avatar className="h-8 w-8">
           <AvatarFallback><User /></AvatarFallback>

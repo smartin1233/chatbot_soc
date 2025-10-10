@@ -1583,8 +1583,8 @@ function EnhancedChatBubble({
           {/* Suggestions */}
           {message.suggestions && message.suggestions.length > 0 && (
             <div className="bg-muted/20 rounded-lg p-3">
-              <div className="text-xs font-medium mb-2 text-muted-foreground flex items-center gap-1">
-                <Brain className="h-3 w-3" />
+              <div className="text-[15px] font-medium mb-2 text-muted-foreground flex items-center gap-1">
+                <Brain className="h-4 w-4" />
                 Suggested Next Steps
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1594,12 +1594,12 @@ function EnhancedChatBubble({
                     size="sm"
                     variant={suggestion.includes('API') || suggestion.includes('Settings') ? 'default' : 'outline'}
                     className={cn(
-                      "text-xs h-7",
+                      "text-[15px] h-9",
                       suggestion.includes('API') || suggestion.includes('Settings') && "bg-blue-600 hover:bg-blue-700 text-white"
                     )}
                     onClick={() => onSuggestionClick(suggestion)}
                   >
-                    {suggestion.includes('Settings') && <Settings className="h-3 w-3 mr-1" />}
+                    {suggestion.includes('Settings') && <Settings className="h-4 w-4 mr-1" />}
                     {suggestion}
                   </Button>
                 ))}
