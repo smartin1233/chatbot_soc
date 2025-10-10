@@ -231,9 +231,11 @@ export default function Header({ onLogout }: HeaderProps) {
                     <DropdownMenuContent className="w-56" align="end" forceMount>
                         <DropdownMenuLabel className="font-normal">
                             <div className="flex flex-col space-y-1">
-                                <p className="text-sm font-medium leading-none">BI Analyst</p>
+                                <p className="text-sm font-medium leading-none">
+                                    {typeof window !== 'undefined' && localStorage.getItem('zentere_username')?.split('@')[0]?.split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ') || 'User'}
+                                </p>
                                 <p className="text-xs leading-none text-muted-foreground">
-                                    analyst@example.com
+                                    {typeof window !== 'undefined' && localStorage.getItem('zentere_username') || 'user@example.com'}
                                 </p>
                             </div>
                         </DropdownMenuLabel>

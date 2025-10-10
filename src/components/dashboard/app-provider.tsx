@@ -33,6 +33,14 @@ type AppState = {
     outliers: OutlierData[];
     forecastData: ForecastData[];
   };
+  forecastMetrics?: {
+    mape?: number;
+    model?: string;
+    accuracy?: number;
+    rmse?: number;
+    mae?: number;
+    [key: string]: any;
+  };
   conversationContext: {
     topics: string[]; // for example, ['data_exploration', 'forecasting', 'modeling']
     currentPhase: 'onboarding' | 'exploration' | 'analysis' | 'modeling' | 'forecasting' | 'insights';
@@ -73,6 +81,7 @@ type Action =
   | { type: 'ADD_LOB'; payload: LOBCreationData }
   | { type: 'UPLOAD_DATA', payload: { lobId: string, file: File } }
   | { type: 'UPDATE_LOB_FORECAST'; payload: { lobId: string, forecastData: WeeklyData[], forecastMetrics: any } }
+  | { type: 'UPDATE_LOB_WITH_FORECAST_DATA'; payload: { lobId: string, forecastData: WeeklyData[], forecastMetrics: any } }
   | { type: 'TRACK_ACTIVITY'; payload: Partial<AppState['userActivity']> }
   | { type: 'TOGGLE_VISUALIZATION', payload: { messageId: string } }
   | { type: 'SET_DATA_PANEL_OPEN'; payload: boolean }
@@ -84,6 +93,7 @@ type Action =
   | { type: 'UPDATE_ANALYZED_DATA'; payload: Partial<AppState['analyzedData']> }
   | { type: 'SET_ANALYZED_DATA'; payload: Partial<AppState['analyzedData']> }
   | { type: 'RESET_ANALYZED_DATA' }
+  | { type: 'SET_FORECAST_METRICS'; payload: { mape?: number; model?: string; accuracy?: number; rmse?: number; mae?: number; [key: string]: any } }
   | { type: 'END_ONBOARDING' }
   | { type: 'QUEUE_USER_PROMPT'; payload: string }
   | { type: 'CLEAR_QUEUED_PROMPT' }
@@ -313,7 +323,13 @@ function appReducer(state: AppState, action: Action): AppState {
           lastAnalysisType: null,
           outliers: [],
           forecastData: []
-        }
+        },
+        forecastMetrics: undefined
+      };
+    case 'SET_FORECAST_METRICS':
+      return {
+        ...state,
+        forecastMetrics: action.payload
       };
     case 'END_ONBOARDING':
       return { ...state, isOnboarding: false };
@@ -441,27 +457,87 @@ function appReducer(state: AppState, action: Action): AppState {
       };
     }
     case 'UPDATE_LOB_FORECAST': {
+      console.log('📊 UPDATE_LOB_FORECAST action received:', {
+        lobId: action.payload.lobId,
+        forecastDataLength: action.payload.forecastData?.length,
+        forecastMetrics: action.payload.forecastMetrics
+      });
+      
+      const updatedBusinessUnits = state.businessUnits.map(bu => ({
+        ...bu,
+        lobs: bu.lobs.map(lob =>
+          lob.id === action.payload.lobId
+            ? {
+                ...lob,
+                timeSeriesData: action.payload.forecastData,
+                forecastMetrics: action.payload.forecastMetrics
+              }
+            : lob
+        )
+      }));
+      
+      const updatedSelectedLob = state.selectedLob?.id === action.payload.lobId
+        ? {
+            ...state.selectedLob,
+            timeSeriesData: action.payload.forecastData,
+            forecastMetrics: action.payload.forecastMetrics
+          }
+        : state.selectedLob;
+      
+      console.log('✅ Updated selectedLob with forecast metrics:', updatedSelectedLob?.forecastMetrics);
+      
       return {
         ...state,
-        businessUnits: state.businessUnits.map(bu => ({
-          ...bu,
-          lobs: bu.lobs.map(lob =>
-            lob.id === action.payload.lobId
-              ? {
-                  ...lob,
-                  timeSeriesData: action.payload.forecastData,
-                  forecastMetrics: action.payload.forecastMetrics
-                }
-              : lob
-          )
-        })),
-        selectedLob: state.selectedLob?.id === action.payload.lobId
-          ? {
-              ...state.selectedLob,
-              timeSeriesData: action.payload.forecastData,
-              forecastMetrics: action.payload.forecastMetrics
-            }
-          : state.selectedLob
+        businessUnits: updatedBusinessUnits,
+        selectedLob: updatedSelectedLob
+      };
+    }
+    case 'UPDATE_LOB_WITH_FORECAST_DATA': {
+      console.log('📊 UPDATE_LOB_WITH_FORECAST_DATA action received:', {
+        lobId: action.payload.lobId,
+        forecastDataLength: action.payload.forecastData?.length,
+        forecastMetrics: action.payload.forecastMetrics
+      });
+      
+      const updatedBusinessUnits = state.businessUnits.map(bu => ({
+        ...bu,
+        lobs: bu.lobs.map(lob =>
+          lob.id === action.payload.lobId
+            ? {
+                ...lob,
+                timeSeriesData: action.payload.forecastData,
+                forecastMetrics: action.payload.forecastMetrics
+              }
+            : lob
+        )
+      }));
+      
+      const updatedSelectedLob = state.selectedLob?.id === action.payload.lobId
+        ? {
+            ...state.selectedLob,
+            timeSeriesData: action.payload.forecastData,
+            forecastMetrics: action.payload.forecastMetrics
+          }
+        : state.selectedLob;
+      
+      console.log('✅ Updated selectedLob with forecast metrics:', updatedSelectedLob?.forecastMetrics);
+      
+      return {
+        ...state,
+        businessUnits: updatedBusinessUnits,
+        selectedLob: updatedSelectedLob,
+        analyzedData: {
+          ...state.analyzedData,
+          hasForecasting: true,
+          forecastData: action.payload.forecastData.filter(d => d.Forecast && d.Forecast > 0),
+          lastAnalysisDate: new Date(),
+          lastAnalysisType: 'forecasting'
+        },
+        userActivity: {
+          ...state.userActivity,
+          hasGeneratedForecast: true,
+          lastAction: 'generate_forecast'
+        }
       };
     }
     case 'TOGGLE_VISUALIZATION': {
@@ -527,7 +603,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? localStorage.getItem('isAuthenticated') === 'true'
         : false;
 
-      if (!isAuthenticated || hasLoadedData) {
+      // Don't reload if we already have data or if forecast data exists
+      const hasForecastData = state.businessUnits.some(bu => 
+        bu.lobs.some(lob => lob.forecastMetrics || (lob.timeSeriesData && lob.timeSeriesData.some(d => d.Forecast && d.Forecast > 0)))
+      );
+
+      if (!isAuthenticated || hasLoadedData || hasForecastData) {
         return;
       }
 

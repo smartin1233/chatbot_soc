@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, TrendingUp, TrendingDown } from "lucide-react";
@@ -18,23 +18,83 @@ interface ForecastComparisonChartProps {
   data: WeeklyData[];
   title?: string;
   target: "Value" | "Orders";
+  chartMetrics?: {
+    mape?: number;
+    model?: string;
+    accuracy?: number;
+    [key: string]: any;
+  };
 }
 
 export default function ForecastComparisonChart({
   data,
   title = "Actual vs Forecast Comparison",
   target,
+  chartMetrics,
 }: ForecastComparisonChartProps) {
+  // Generate extended forecast data with dummy weekly values
+  const extendedData = useMemo(() => {
+    const historicalData = data.filter((d) => d.Forecast == null);
+    const existingForecastData = data.filter((d) => d.Forecast != null);
+    
+    // If we already have forecast data, use it as is
+    if (existingForecastData.length > 0) {
+      return data;
+    }
+    
+    // Generate dummy weekly forecast for next 4 weeks
+    if (historicalData.length === 0) return data;
+    
+    const lastDate = new Date(
+      historicalData[historicalData.length - 1].Date || 
+      historicalData[historicalData.length - 1].ds || 
+      historicalData[historicalData.length - 1].date || 
+      new Date()
+    );
+    
+    const lastValue = historicalData[historicalData.length - 1][target] || 0;
+    const avgValue = historicalData.reduce((sum, d) => sum + (d[target] || 0), 0) / historicalData.length;
+    
+    // Calculate trend from last 4 weeks
+    const recentData = historicalData.slice(-4);
+    const trend = recentData.length > 1 
+      ? ((recentData[recentData.length - 1][target] || 0) - (recentData[0][target] || 0)) / recentData.length
+      : 0;
+    
+    const forecastWeeks: WeeklyData[] = [];
+    for (let i = 1; i <= 4; i++) {
+      const forecastDate = new Date(lastDate);
+      forecastDate.setDate(forecastDate.getDate() + (i * 7)); // Weekly intervals
+      
+      // Generate forecast with trend and some variation
+      const baseForecast = lastValue + (trend * i);
+      const variation = avgValue * 0.05; // 5% variation
+      const forecast = baseForecast + (Math.random() - 0.5) * variation;
+      
+      forecastWeeks.push({
+        Date: forecastDate.toISOString().split('T')[0],
+        ds: forecastDate.toISOString().split('T')[0],
+        date: forecastDate.toISOString().split('T')[0],
+        Forecast: Math.max(0, forecast),
+        ForecastLower: Math.max(0, forecast * 0.9),
+        ForecastUpper: forecast * 1.1,
+      });
+    }
+    
+    return [...historicalData, ...forecastWeeks];
+  }, [data, target]);
+
   // Separate actual and forecast data
-  const historicalData = data.filter((d) => d.Forecast == null);
-  const forecastData = data.filter((d) => d.Forecast != null);
+  const historicalData = extendedData.filter((d) => d.Forecast == null);
+  const forecastData = extendedData.filter((d) => d.Forecast != null);
 
-  // Include forecast-only rows for comparison
-  const actualVsForecast = data.filter((d) => d.Forecast != null);
-
-  // Compute MAPE (ignore zero actuals)
-  const mape = (() => {
-    const pairs = data.filter(
+  // Use MAPE from chartMetrics if available, otherwise compute from data
+  const mape = useMemo(() => {
+    if (chartMetrics?.mape != null) {
+      return chartMetrics.mape;
+    }
+    
+    const pairs = extendedData.filter(
       (d) =>
         d.Forecast != null &&
         d[target] != null &&
@@ -47,9 +107,9 @@ export default function ForecastComparisonChart({
       return acc + Math.abs((actual - forecast) / actual);
     }, 0);
     return (sum / pairs.length) * 100;
-  })();
+  }, [extendedData, target, chartMetrics]);
 
-  // Determine trend direction
+  // Decide trend direction
   const trend =
     historicalData.length > 1
       ? historicalData[historicalData.length - 1][target]! >
@@ -57,6 +117,10 @@ export default function ForecastComparisonChart({
         ? "up"
         : "down"
       : "stable";
+  
+  // Extract model info from chartMetrics
+  const modelInfo = chartMetrics?.model || "Auto-selected";
+  const accuracy = chartMetrics?.accuracy;
 
   // Generate mini sparkline
   const generateMiniChart = (values: (number | null | undefined)[]) => {
@@ -91,6 +155,11 @@ export default function ForecastComparisonChart({
             <Badge variant="outline" className="text-xs">
               MAPE: {mape.toFixed(1)}%
             </Badge>
+            {accuracy != null && (
+              <Badge variant="outline" className="text-xs bg-green-50">
+                Accuracy: {accuracy.toFixed(1)}%
+              </Badge>
+            )}
             {trend === "up" ? (
               <TrendingUp className="h-4 w-4 text-green-500" />
             ) : trend === "down" ? (
@@ -100,6 +169,11 @@ export default function ForecastComparisonChart({
             )}
           </div>
         </div>
+        {modelInfo && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Model: {modelInfo}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">

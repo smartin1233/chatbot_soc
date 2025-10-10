@@ -36,19 +36,74 @@ interface ForecastData {
 export default function BIDashboard() {
   const { state } = useApp();
 
+  // Debug: Log when forecast metrics change
+  React.useEffect(() => {
+    if (state.selectedLob?.forecastMetrics) {
+      console.log('📊 BIDashboard: Forecast metrics updated:', state.selectedLob.forecastMetrics);
+    }
+  }, [state.selectedLob?.forecastMetrics]);
+
   // Generate dynamic dashboard configuration based on conversation context
   const dashboardConfig = useMemo(() => {
-    return dynamicInsightsAnalyzer.generateDynamicDashboard(
+    const config = dynamicInsightsAnalyzer.generateDynamicDashboard(
       state.conversationContext || { topics: [], currentPhase: 'onboarding', completedTasks: [], userIntent: '' },
       state.selectedLob?.hasData || false
     );
-  }, [state.conversationContext, state.selectedLob?.hasData]);
+    
+    // Add forecast-specific insights if forecast data exists
+    if (state.selectedLob?.forecastMetrics) {
+      const forecastInsights = [];
+      const metrics = state.selectedLob.forecastMetrics;
+      
+      // Model performance insight
+      if (metrics.mape) {
+        forecastInsights.push({
+          id: 'forecast-accuracy',
+          type: 'model_performance' as const,
+          title: `${metrics.modelName} Model Performance`,
+          description: `Forecast accuracy of ${(100 - metrics.mape).toFixed(1)}% (MAPE: ${metrics.mape.toFixed(1)}%)`,
+          businessValue: metrics.mape < 10 
+            ? 'Excellent accuracy - Reliable for strategic planning and resource allocation'
+            : metrics.mape < 20
+            ? 'Good accuracy - Suitable for operational planning with some buffer'
+            : 'Moderate accuracy - Use with caution and consider additional validation',
+          nextAction: 'Use these forecasts to plan inventory, staffing, and budget allocation',
+          priority: 'high' as const,
+          relevantToPhase: 'forecasting' as const
+        });
+      }
+      
+      // Forecast horizon insight
+      if (metrics.forecastHorizon) {
+        forecastInsights.push({
+          id: 'forecast-horizon',
+          type: 'forecast' as const,
+          title: `${metrics.forecastHorizon} Forecast Available`,
+          description: `Predictions generated with ${metrics.confidenceLevel}% confidence intervals`,
+          businessValue: 'Plan ahead with data-driven predictions to optimize operations and reduce uncertainty',
+          nextAction: 'Review forecast trends and adjust business strategies accordingly',
+          priority: 'high' as const,
+          relevantToPhase: 'forecasting' as const
+        });
+      }
+      
+      // Add forecast insights to the config
+      config.relevantInsights = [...forecastInsights, ...config.relevantInsights];
+    }
+    
+    return config;
+  }, [state.conversationContext, state.selectedLob?.hasData, state.selectedLob?.forecastMetrics]);
 
   // Generate KPIs and metrics based on dashboard config
   const kpis = useMemo(() => {
     if (!state.selectedLob?.timeSeriesData || !dashboardConfig.showBusinessMetrics) return [];
 
-    const data = state.selectedLob.timeSeriesData;
+    const allData = state.selectedLob.timeSeriesData;
+    
+    // Separate historical data (exclude forecast points for KPI calculation)
+    const historicalData = allData.filter(d => !d.isForecast && (!d.Forecast || d.Forecast === 0));
+    const data = historicalData.length > 0 ? historicalData : allData;
+    
     const currentValue = data[data.length - 1]?.Value || 0;
     const previousValue = data[data.length - 2]?.Value || 0;
     const change = ((currentValue - previousValue) / previousValue) * 100;
@@ -87,15 +142,15 @@ export default function BIDashboard() {
       //   changeType: ordersChange > 0 ? 'positive' : ordersChange < 0 ? 'negative' : 'neutral' as const,
       //   trend: ordersChange > 5 ? 'up' : ordersChange < -5 ? 'down' : 'stable' as const
       // },
-      efficiency: {
-        label: "Efficiency",
-        value: efficiency.toFixed(2),
-        change: efficiencyChange,
-        changeType: efficiencyChange > 0 ? 'positive' : efficiencyChange < 0 ? 'negative' : 'neutral' as const,
-        trend: efficiencyChange > 5 ? 'up' : efficiencyChange < -5 ? 'down' : 'stable' as const,
-        target: efficiency * 1.05,
-        unit: ""
-      },
+      // efficiency: {
+      //   label: "Efficiency",
+      //   value: efficiency.toFixed(2),
+      //   change: efficiencyChange,
+      //   changeType: efficiencyChange > 0 ? 'positive' : efficiencyChange < 0 ? 'negative' : 'neutral' as const,
+      //   trend: efficiencyChange > 5 ? 'up' : efficiencyChange < -5 ? 'down' : 'stable' as const,
+      //   target: efficiency * 1.05,
+      //   unit: ""
+      // },
       growth_rate: {
         label: "Growth Rate",
         value: change.toFixed(1) + "%",
@@ -114,7 +169,7 @@ export default function BIDashboard() {
 
     // Filter KPIs based on dashboard config
     return dashboardConfig.kpisToShow.map(kpiKey => allKPIs[kpiKey as keyof typeof allKPIs]).filter(Boolean);
-  }, [state.selectedLob, dashboardConfig]);
+  }, [state.selectedLob?.timeSeriesData, state.selectedLob?.forecastMetrics, dashboardConfig]);
 
   // Generate forecast data with confidence intervals
   const forecastData = useMemo(() => {
@@ -139,6 +194,16 @@ export default function BIDashboard() {
       });
     });
 
+    // Add connection point - last actual value as first forecast point for smooth transition
+    if (forecast.length > 0 && displayHistorical.length > 0) {
+      const lastActual = displayHistorical[displayHistorical.length - 1];
+      forecastPoints.push({
+        date: new Date(lastActual.Date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        forecast: lastActual.Value, // Use actual value for connection
+        is_future: false
+      });
+    }
+
     // Add forecast data if available (from forecasting agent)
     if (forecast.length > 0) {
       forecast.forEach(item => {
@@ -153,7 +218,7 @@ export default function BIDashboard() {
     }
 
     return forecastPoints;
-  }, [state.selectedLob]);
+  }, [state.selectedLob?.timeSeriesData]);
 
   // Calculate actual model performance metrics from data
   const modelMetrics = useMemo(() => {
@@ -318,13 +383,14 @@ export default function BIDashboard() {
                     }}
                   />
 
-                  {/* Confidence interval area */}
+                  {/* Confidence interval shaded area (green) */}
                   <Area
                     type="monotone"
                     dataKey="upper_ci"
                     stroke="none"
                     fill="#10B981"
-                    fillOpacity={0.1}
+                    fillOpacity={0.25}
+                    name="Upper Bound"
                   />
                   <Area
                     type="monotone"
@@ -332,27 +398,30 @@ export default function BIDashboard() {
                     stroke="none"
                     fill="#ffffff"
                     fillOpacity={1}
+                    name="Lower Bound"
                   />
 
-                  {/* Actual data line */}
+                  {/* Actual data line (solid blue/teal) */}
                   <Line
                     type="monotone"
                     dataKey="actual"
-                    stroke="#3B82F6"
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: '#3B82F6' }}
+                    stroke="#0891B2"
+                    strokeWidth={2.5}
+                    dot={{ r: 4, fill: '#0891B2', strokeWidth: 0 }}
                     connectNulls={false}
+                    name="Actual"
                   />
 
-                  {/* Forecast line */}
+                  {/* Forecast line (dotted) */}
                   <Line
                     type="monotone"
                     dataKey="forecast"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    strokeDasharray="5 5"
-                    dot={{ r: 3, fill: '#10B981' }}
+                    stroke="#0891B2"
+                    strokeWidth={2.5}
+                    strokeDasharray="4 4"
+                    dot={{ r: 4, fill: '#0891B2', strokeWidth: 0 }}
                     connectNulls={false}
+                    name="Forecast"
                   />
 
                   <Legend />

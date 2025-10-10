@@ -54,9 +54,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
   // Enhanced data processing with date filtering
   const filteredData = useMemo(() => {
     if (!state.selectedLob?.timeSeriesData) return null;
-    
+
     let data = state.selectedLob.timeSeriesData;
-    
+
     // Apply date range filter
     if (state.dateRange) {
       data = data.filter(item => {
@@ -64,7 +64,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         return itemDate >= state.dateRange!.start && itemDate <= state.dateRange!.end;
       });
     }
-    
+
     return data;
   }, [state.selectedLob?.timeSeriesData, state.dateRange]);
 
@@ -209,7 +209,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       // Distribution insight
       const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avgValue, 2), 0) / values.length);
       const cv = (stdDev / avgValue) * 100;
-      
+
       insights.push({
         id: 'distribution',
         title: 'Data Distribution Analysis',
@@ -362,7 +362,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
   useEffect(() => {
     // Always generate real insights based on actual session data
     generateRealInsights();
-    
+
     if (state.selectedLob?.hasData && (state.analyzedData.hasEDA || state.analyzedData.hasInsights)) {
       performAdvancedAnalytics();
     }
@@ -457,7 +457,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
               {insight.significance} priority
             </Badge>
           </div>
-          
+
           {insight.recommendation && (
             <div className="text-xs bg-muted/50 rounded p-2 border-l-2 border-primary break-words">
               <strong>💡 Recommendation:</strong> {insight.recommendation}
@@ -677,32 +677,32 @@ export default function EnhancedDataPanel({ className }: { className?: string })
         >
           <div className="px-2 sm:px-4 pt-3 border-b overflow-x-auto">
             <TabsList className="grid w-full grid-cols-4 min-w-max">
-              <TabsTrigger 
-                value="dashboard" 
+              <TabsTrigger
+                value="dashboard"
                 className="text-xs sm:text-sm px-2 sm:px-4"
                 disabled={!state.analyzedData.hasEDA}
               >
                 <PieChart className="h-3 w-3 sm:mr-1" />
                 <span className="hidden sm:inline">Dashboard</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="chart" 
+              <TabsTrigger
+                value="chart"
                 className="text-xs sm:text-sm px-2 sm:px-4"
                 disabled={!state.analyzedData.hasEDA}
               >
                 <LineChart className="h-3 w-3 sm:mr-1" />
                 <span className="hidden sm:inline">Charts</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="insights" 
+              <TabsTrigger
+                value="insights"
                 className="text-xs sm:text-sm px-2 sm:px-4"
                 disabled={!state.analyzedData.hasInsights && !state.analyzedData.hasForecasting}
               >
                 <Zap className="h-3 w-3 sm:mr-1" />
                 <span className="hidden sm:inline">Insights</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="table" 
+              <TabsTrigger
+                value="table"
                 className="text-xs sm:text-sm px-2 sm:px-4"
                 disabled={!state.analyzedData.hasEDA}
               >
@@ -768,16 +768,17 @@ export default function EnhancedDataPanel({ className }: { className?: string })
                         </CardContent>
                       </Card>
                     )}
-                    
+
                     {/* Forecast vs Actual Comparison */}
-                    {state.analyzedData.hasForecasting && vizData.some(d => d.Forecast) && (
+                    {state.analyzedData.hasForecasting && (
                       <ForecastComparisonChart
                         data={vizData}
                         target={state.dataPanelTarget === 'units' ? 'Value' : 'Orders'}
                         title="Actual vs Forecast Analysis"
+                        chartMetrics={state.forecastMetrics}
                       />
                     )}
-                    
+
                     <EnhancedDataVisualizer
                       data={vizData}
                       target={state.dataPanelTarget as 'Value' | 'Orders'}
@@ -867,9 +868,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
 
                 {/* Refresh Button */}
                 <div className="mt-4 pt-4 border-t">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={generateRealInsights}
                     className="w-full"
                   >
@@ -902,8 +903,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
                       {vizData.map((row, i) => {
                         const efficiency = row.Value / (row.Orders || 1);
                         const isOutlier = analyticsResults?.statistical?.outliers?.indices?.includes(i) || false;
+                        const isForecast = row.isForecast || false;
                         return (
-                          <TableRow key={i} className={isOutlier ? "bg-yellow-50/50 dark:bg-yellow-950/20" : ""}>
+                          <TableRow key={i} className={isOutlier ? "bg-yellow-50/50 dark:bg-yellow-950/20" : isForecast ? "bg-blue-50/30 dark:bg-blue-950/20" : ""}>
                             <TableCell className="font-medium">
                               {new Date(row.Date).toLocaleDateString()}
                               {isOutlier && (
@@ -911,15 +913,20 @@ export default function EnhancedDataPanel({ className }: { className?: string })
                                   Outlier
                                 </Badge>
                               )}
+                              {isForecast && (
+                                <Badge variant="outline" className="ml-2 text-xs bg-blue-100 dark:bg-blue-900">
+                                  Forecast
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {row.Value.toLocaleString()}
+                              {row.Value?.toLocaleString() || 'N/A'}
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              {row.Orders.toLocaleString()}
+                              {row.Orders?.toLocaleString() || '-'}
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground">
-                              {efficiency.toFixed(2)}
+                              {row.Orders ? efficiency.toFixed(2) : '-'}
                             </TableCell>
                           </TableRow>
                         );

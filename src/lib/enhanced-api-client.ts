@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: APIConfig = {
   openaiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
   openrouterKey: '',
   preferredProvider: 'openai',
-  model: 'gpt-4o-mini'
+  model: 'gpt-4.1-mini'
 };
 
 // Cache implementation

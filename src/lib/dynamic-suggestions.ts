@@ -56,7 +56,7 @@ export class DynamicSuggestionGenerator {
       if (!userActivity.hasViewedInsights) {
         suggestions.push('Generate business insights');
       }
-      suggestions.push('Export forecast results');
+
       suggestions.push('Analyze forecast trends');
       suggestions.push('Run scenario analysis');
       return suggestions.slice(0, 4);
@@ -173,7 +173,7 @@ export class DynamicSuggestionGenerator {
     return [
       'Generate business insights',
       'View forecast details',
-      'Export forecast results',
+
       'Plan based on forecast'
     ];
   }
@@ -228,7 +228,7 @@ export class DynamicSuggestionGenerator {
         if (!activity.hasViewedInsights) {
           suggestions.push('Generate business insights');
         }
-        suggestions.push('Export forecast results');
+
         suggestions.push('Analyze forecast trends');
         suggestions.push('View confidence intervals');
         break;

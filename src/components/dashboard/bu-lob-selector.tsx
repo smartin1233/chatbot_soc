@@ -697,30 +697,39 @@ export default function BuLobSelector({
                 `| ${new Date(row.Date).toLocaleDateString()} | ${row.Value.toLocaleString()} |`
             ).join('\n');
 
-            const content = `✅ **Selected: ${lob.name}**
+            // Calculate data insights
+            const dataSpan = lob.recordCount > 0 ? Math.ceil((new Date(lob.timeSeriesData[lob.timeSeriesData.length - 1].Date).getTime() - new Date(lob.timeSeriesData[0].Date).getTime()) / (1000 * 60 * 60 * 24 * 30)) : 0;
+            const valueRange = maxValue && minValue ? ((parseFloat(maxValue.replace(/,/g, '')) - parseFloat(minValue.replace(/,/g, ''))) / parseFloat(minValue.replace(/,/g, '')) * 100).toFixed(1) : '0';
+            
+            const content = `## ✅ ${lob.name} - Data Loaded Successfully
 
-📊 **Data Overview:**
-• **Business Unit:** ${bu.name}
-• **Line of Business:** ${lob.name}
-• **Code:** ${lob.code || 'N/A'}
-• **Total Records:** ${lob.recordCount.toLocaleString()}
-• **Date Range:** ${dateRange}
+**${bu.name}** • **${lob.code || 'LOB'}** • ${lob.recordCount.toLocaleString()} records
 
-📈 **Statistics:**
-• **Average Value:** ${avgValue}
-• **Min Value:** ${minValue}
-• **Max Value:** ${maxValue}
-• **Data Quality:** ${lob.dataQuality?.trend || 'Good'}
+### 📊 Dataset Summary
 
-📋 **Data Preview (First 10 records):**
+**Coverage:** ${dataSpan} months of historical data (${dateRange})
+
+**Key Metrics:**
+• Average: **${avgValue}** per period
+• Range: ${minValue} - ${maxValue} (${valueRange}% variation)
+• Data Quality: **${lob.dataQuality?.trend || 'Stable'}** trend detected
+
+### 🎯 What You Can Do Next
+
+**Analysis Options:**
+• **Explore Data** - View trends, patterns, and anomalies
+• **Run Forecast** - Generate predictions for future periods
+• **Quality Check** - Detailed data quality assessment
+• **Export Data** - Download for external analysis
+
+### 📋 Sample Data Preview
+
 \`\`\`
-| Date | Value |
-|------|-------|
-${previewTable}
-${lob.recordCount > 10 ? `\n... and ${lob.recordCount - 10} more records` : ''}
+Date         Value
+${previewTable}${lob.recordCount > 10 ? `\n... +${lob.recordCount - 10} more records` : ''}
 \`\`\`
 
-Your data is loaded and ready for analysis!`;
+💡 **Ready to analyze!** Choose an option below or ask me anything about your data.`;
 
             dispatch({
                 type: 'ADD_MESSAGE',

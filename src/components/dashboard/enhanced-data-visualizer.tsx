@@ -117,12 +117,26 @@ export default function EnhancedDataVisualizer({
         <div className="space-y-1 text-xs">
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">Value:</span>
-            <span className="font-mono">{data.Value.toLocaleString()}</span>
+            <span className="font-mono">{data.Value?.toLocaleString() || 'N/A'}</span>
           </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-muted-foreground">Orders:</span>
-            <span className="font-mono">{data.Orders.toLocaleString()}</span>
-          </div>
+          {data.Orders !== undefined && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Orders:</span>
+              <span className="font-mono">{data.Orders.toLocaleString()}</span>
+            </div>
+          )}
+          {data.Forecast !== undefined && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Forecast:</span>
+              <span className="font-mono text-green-600 dark:text-green-400">{data.Forecast.toLocaleString()}</span>
+            </div>
+          )}
+          {data.ForecastLower !== undefined && data.ForecastUpper !== undefined && (
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Confidence:</span>
+              <span className="font-mono text-xs">{data.ForecastLower.toLocaleString()} - {data.ForecastUpper.toLocaleString()}</span>
+            </div>
+          )}
           {data.movingAverage && (
             <div className="flex justify-between gap-4">
               <span className="text-muted-foreground">7-day Avg:</span>

@@ -403,8 +403,13 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                         value={config.model}
                         onChange={(e) => setConfig(prev => ({ ...prev, model: e.target.value }))}
                       >
+                        <option value="gpt-4.1-mini">GPT-4.1 Mini (Recommended - Latest & Fast)</option>
+                        <option value="gpt-4.1">GPT-4.1 (Latest Premium)</option>
                         <option value="gpt-4o-mini">GPT-4o Mini (Fast & Efficient)</option>
                         <option value="gpt-4o">GPT-4o (Premium Quality)</option>
+                        <option value="o1-mini">O1 Mini (Advanced Reasoning)</option>
+                        <option value="gpt-4">GPT-4 (High Quality)</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo (Balanced)</option>
                         <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cost Effective)</option>
                       </select>
                     ) : (

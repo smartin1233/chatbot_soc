@@ -45,6 +45,12 @@ type AppState = {
     hasInsights: boolean;
     lastAnalysisType?: string;
   };
+  forecastMetrics?: {
+    mape?: number;
+    model?: string;
+    accuracy?: number;
+    [key: string]: any;
+  };
   dateRange?: {
     start: Date;
     end: Date;
@@ -84,6 +90,7 @@ type Action =
   | { type: 'SET_ANALYZED_DATA'; payload: { hasEDA?: boolean; hasForecasting?: boolean; hasInsights?: boolean; lastAnalysisType?: string } }
   | { type: 'SET_DATE_RANGE'; payload: { start: Date; end: Date; preset?: 'last_7_days' | 'last_30_days' | 'last_90_days' | 'last_year' } }
   | { type: 'ADD_FORECAST_DATA' }
+  | { type: 'SET_FORECAST_METRICS'; payload: { mape?: number; model?: string; accuracy?: number; [key: string]: any } }
   | { type: 'SET_ONBOARDING_STEP'; payload: OnboardingStep }
   | { type: 'ADVANCE_ONBOARDING_STEP' }
   | { type: 'RESET_ONBOARDING_PROGRESS' }
@@ -327,6 +334,12 @@ function appReducer(state: AppState, action: Action): AppState {
 
     case 'ADD_FORECAST_DATA':
       return state;
+
+    case 'SET_FORECAST_METRICS':
+      return {
+        ...state,
+        forecastMetrics: action.payload,
+      };
 
     case 'SET_ONBOARDING_STEP': {
       const stepIndex = state.onboardingProgress.findIndex(s => s.id === action.payload);
