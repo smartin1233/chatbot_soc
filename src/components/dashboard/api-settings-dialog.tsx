@@ -67,6 +67,19 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
   };
 
   const handleSave = async () => {
+    // Validate at least one provider is enabled
+    if (config.enableOpenAI === false && config.enableOpenRouter === false) {
+      alert('At least one API provider must be enabled');
+      return;
+    }
+
+    // If preferred provider is disabled, switch to the enabled one
+    if (config.preferredProvider === 'openai' && config.enableOpenAI === false) {
+      config.preferredProvider = 'openrouter';
+    } else if (config.preferredProvider === 'openrouter' && config.enableOpenRouter === false) {
+      config.preferredProvider = 'openai';
+    }
+
     setSaving(true);
 
     try {
@@ -298,6 +311,46 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
             <TabsContent value="preferences" className="space-y-4">
               <Card>
                 <CardHeader>
+                  <CardTitle className="text-sm">Provider Enable/Disable</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <Label htmlFor="enable-openai" className="font-medium">OpenAI</Label>
+                      <p className="text-sm text-muted-foreground">Enable OpenAI API for high-quality responses</p>
+                    </div>
+                    <Switch
+                      id="enable-openai"
+                      checked={config.enableOpenAI !== false}
+                      onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableOpenAI: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="space-y-1">
+                      <Label htmlFor="enable-openrouter" className="font-medium">OpenRouter</Label>
+                      <p className="text-sm text-muted-foreground">Enable OpenRouter API for free models</p>
+                    </div>
+                    <Switch
+                      id="enable-openrouter"
+                      checked={config.enableOpenRouter !== false}
+                      onCheckedChange={(checked) => setConfig(prev => ({ ...prev, enableOpenRouter: checked }))}
+                    />
+                  </div>
+
+                  {!config.enableOpenAI && !config.enableOpenRouter && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Warning:</strong> At least one API provider must be enabled for the system to function.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-sm">Provider Preferences</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -315,8 +368,11 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                             ...prev,
                             preferredProvider: e.target.value as 'openai' | 'openrouter'
                           }))}
+                          disabled={config.enableOpenAI === false}
                         />
-                        <Label htmlFor="prefer-openai">OpenAI (High Quality)</Label>
+                        <Label htmlFor="prefer-openai" className={config.enableOpenAI === false ? 'text-muted-foreground' : ''}>
+                          OpenAI (High Quality) {config.enableOpenAI === false && '(Disabled)'}
+                        </Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
@@ -329,8 +385,11 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                             ...prev,
                             preferredProvider: e.target.value as 'openai' | 'openrouter'
                           }))}
+                          disabled={config.enableOpenRouter === false}
                         />
-                        <Label htmlFor="prefer-openrouter">OpenRouter (Free)</Label>
+                        <Label htmlFor="prefer-openrouter" className={config.enableOpenRouter === false ? 'text-muted-foreground' : ''}>
+                          OpenRouter (Free) {config.enableOpenRouter === false && '(Disabled)'}
+                        </Label>
                       </div>
                     </div>
                   </div>
@@ -344,8 +403,13 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                         value={config.model}
                         onChange={(e) => setConfig(prev => ({ ...prev, model: e.target.value }))}
                       >
+                        <option value="gpt-4.1-mini">GPT-4.1 Mini (Recommended - Latest & Fast)</option>
+                        <option value="gpt-4.1">GPT-4.1 (Latest Premium)</option>
                         <option value="gpt-4o-mini">GPT-4o Mini (Fast & Efficient)</option>
                         <option value="gpt-4o">GPT-4o (Premium Quality)</option>
+                        <option value="o1-mini">O1 Mini (Advanced Reasoning)</option>
+                        <option value="gpt-4">GPT-4 (High Quality)</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo (Balanced)</option>
                         <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cost Effective)</option>
                       </select>
                     ) : (
@@ -360,6 +424,58 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                         <option value="x-ai/grok-4-fast:free">x-ai/grok-4-fast:free</option>
                       </select>
                     )}
+                  </div>
+
+                  {/* Forecasting Options */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forecast-horizon">Forecast Horizon</Label>
+                      <select
+                        id="forecast-horizon"
+                        className="w-full p-2 border border-input rounded-md"
+                        value={(config as any).forecastHorizonDays || 30}
+                        onChange={(e) => setConfig(prev => ({ ...prev, forecastHorizonDays: Number(e.target.value) }))}
+                      >
+                        <option value={7}>7 days</option>
+                        <option value={14}>14 days</option>
+                        <option value={30}>30 days</option>
+                        <option value={60}>60 days</option>
+                        <option value={90}>90 days</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confidence">Confidence Level</Label>
+                      <select
+                        id="confidence"
+                        className="w-full p-2 border border-input rounded-md"
+                        value={(config as any).confidenceLevel || 0.95}
+                        onChange={(e) => setConfig(prev => ({ ...prev, confidenceLevel: Number(e.target.value) }))}
+                      >
+                        <option value={0.8}>80%</option>
+                        <option value={0.9}>90%</option>
+                        <option value={0.95}>95%</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Forecast Model Selection</Label>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {['Prophet','ARIMA','XGBoost','LightGBM','LSTM'].map(m => (
+                        <label key={m} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={((config as any).selectedModels || []).includes(m)}
+                            onChange={(e) => {
+                              const current = new Set((config as any).selectedModels || []);
+                              if (e.target.checked) current.add(m); else current.delete(m);
+                              setConfig(prev => ({ ...prev, selectedModels: Array.from(current) }));
+                            }}
+                          />
+                          {m}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </CardContent>
               </Card>

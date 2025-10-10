@@ -7,20 +7,17 @@ import OpenAI from 'openai';
 // API Configuration
 interface APIConfig {
   openaiKey: string;
-  openrouterKey: string;
-  preferredProvider: 'openai' | 'openrouter';
+  openrouterKey: string; // Deprecated, kept for backwards compatibility
+  preferredProvider: 'openai';
   model: string;
 }
-// Default configuration - Using OpenRouter as primary since it's working
+// Default configuration - Using OpenAI only
 const DEFAULT_CONFIG: APIConfig = {
   openaiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
   openrouterKey: '',
-  preferredProvider: 'openrouter',
-  model: 'gpt-4o-mini'
+  preferredProvider: 'openai',
+  model: 'gpt-4.1-mini'
 };
-
-const OPENROUTER_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct:free';
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
 // Cache implementation
 interface CacheEntry<T> {
@@ -107,7 +104,6 @@ class RateLimiter {
 export class EnhancedAPIClient {
   private config: APIConfig;
   private openaiClient: OpenAI | null = null;
-  private openrouterClient: OpenAI | null = null;
   private cache = new APICache();
   private rateLimiter = new RateLimiter();
   private requestQueue: Array<() => Promise<void>> = [];
@@ -157,13 +153,7 @@ export class EnhancedAPIClient {
         });
       }
 
-      if (this.config.openrouterKey) {
-        this.openrouterClient = new OpenAI({
-          baseURL: OPENROUTER_BASE_URL,
-          apiKey: this.config.openrouterKey,
-          dangerouslyAllowBrowser: true,
-        });
-      }
+      // OpenRouter removed - using OpenAI only
     } catch (error) {
       console.error('Failed to initialize API clients:', error);
     }
@@ -189,15 +179,14 @@ export class EnhancedAPIClient {
   }
 
   // Test API key validity
-  async testAPIKey(provider: 'openai' | 'openrouter', apiKey: string): Promise<{ isValid: boolean; error?: string }> {
+  async testAPIKey(provider: 'openai', apiKey: string): Promise<{ isValid: boolean; error?: string }> {
     try {
       const testClient = new OpenAI({
         apiKey,
-        baseURL: provider === 'openrouter' ? OPENROUTER_BASE_URL : undefined,
         dangerouslyAllowBrowser: true,
       });
 
-      const testModel = provider === 'openrouter' ? OPENROUTER_MODEL : 'gpt-4o-mini';
+      const testModel = 'gpt-4o-mini';
 
       const response = await testClient.chat.completions.create({
         model: testModel,
@@ -289,52 +278,27 @@ export class EnhancedAPIClient {
     } catch (error) {
       console.warn(`${this.config.preferredProvider} request failed:`, error);
 
-      // Try fallback provider if enabled
-      if (retryWithFallback) {
-        const fallbackProvider = this.config.preferredProvider === 'openai' ? 'openrouter' : 'openai';
-        const fallbackModel = fallbackProvider === 'openrouter' ? OPENROUTER_MODEL : 'gpt-4o-mini';
-
-        try {
-          console.log(`Falling back to ${fallbackProvider}...`);
-          const result = await this.makeRequest({
-            provider: fallbackProvider,
-            model: fallbackModel,
-            messages,
-            temperature,
-            max_tokens
-          });
-
-          if (useCache) {
-            this.cache.set(cacheKey, result);
-          }
-
-          return { ...result, fallbackUsed: true, fallbackProvider };
-        } catch (fallbackError) {
-          console.error('Fallback also failed:', fallbackError);
-          throw this.handleError(fallbackError);
-        }
-      } else {
-        throw this.handleError(error);
-      }
+      // No fallback - OpenAI only
+      throw this.handleError(error);
     }
   }
 
   private async makeRequest(params: {
-    provider: 'openai' | 'openrouter';
+    provider: 'openai';
     model: string;
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
     temperature: number;
     max_tokens: number;
   }): Promise<any> {
-    const { provider, model, messages, temperature, max_tokens } = params;
+    const { model, messages, temperature, max_tokens } = params;
     
-    const client = provider === 'openai' ? this.openaiClient : this.openrouterClient;
+    const client = this.openaiClient;
     if (!client) {
-      throw new Error(`${provider} client not initialized. Please check your API key.`);
+      throw new Error('OpenAI client not initialized. Please check your API key.');
     }
 
     // Rate limiting check
-    const identifier = `${provider}-chat`;
+    const identifier = 'openai-chat';
     if (!this.rateLimiter.canMakeRequest(identifier)) {
       throw new Error('Rate limit exceeded. Please wait before making another request.');
     }
@@ -356,7 +320,7 @@ export class EnhancedAPIClient {
             choices: completion.choices,
             usage: completion.usage,
             model: completion.model,
-            provider
+            provider: 'openai'
           };
 
           resolve(response);
@@ -399,11 +363,9 @@ export class EnhancedAPIClient {
   // Health check for both providers
   async healthCheck(): Promise<{
     openai: { available: boolean; error?: string };
-    openrouter: { available: boolean; error?: string };
   }> {
     const results = {
-      openai: { available: false, error: undefined as string | undefined },
-      openrouter: { available: false, error: undefined as string | undefined }
+      openai: { available: false, error: undefined as string | undefined }
     };
 
     // Test OpenAI
@@ -415,17 +377,6 @@ export class EnhancedAPIClient {
       }
     } else {
       results.openai.error = 'No API key configured';
-    }
-
-    // Test OpenRouter
-    if (this.config.openrouterKey) {
-      const openrouterTest = await this.testAPIKey('openrouter', this.config.openrouterKey);
-      results.openrouter.available = openrouterTest.isValid;
-      if (!openrouterTest.isValid) {
-        results.openrouter.error = openrouterTest.error;
-      }
-    } else {
-      results.openrouter.error = 'No API key configured';
     }
 
     return results;
@@ -458,4 +409,63 @@ export function sanitizeUserInput(input: string): string {
     .replace(/javascript:/gi, '')
     .replace(/on\w+\s*=/gi, '')
     .trim();
+}
+
+/**
+ * Clean agent responses by removing Python code blocks and technical details
+ * Keep only business-friendly content
+ */
+export function cleanAgentResponse(response: string): string {
+  let cleaned = response;
+  
+  // Remove REPORT_DATA JSON blocks
+  cleaned = cleaned.replace(/\[REPORT_DATA\][\s\S]*?\[\/REPORT_DATA\]/gi, '');
+  
+  // Remove Python code blocks
+  cleaned = cleaned.replace(/```python[\s\S]*?```/gi, '');
+  cleaned = cleaned.replace(/```[\s\S]*?```/gi, '');
+  
+  // Remove technical stack traces
+  cleaned = cleaned.replace(/Traceback[\s\S]*?Error:/gi, '');
+  
+  // Remove import statements that leaked through
+  cleaned = cleaned.replace(/^import\s+.*/gm, '');
+  cleaned = cleaned.replace(/^from\s+.*import.*/gm, '');
+  
+  // Remove excessive newlines (more than 1 blank line)
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  
+  // Optimize spacing - single line break between items
+  cleaned = cleaned.replace(/\n\n+/g, '\n');
+  
+  // Trim whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
+}
+
+/**
+ * Create a professional summary for multi-agent workflows
+ */
+export function createWorkflowSummary(agentResults: Array<{agent: string, result: any}>): string {
+  const summary = ['## 📊 Analysis Complete\n'];
+  
+  // Extract key findings from each agent
+  agentResults.forEach(({agent, result}) => {
+    if (result && typeof result === 'object') {
+      if (result.summary) {
+        summary.push(`### ${agent}`);
+        summary.push(result.summary);
+        summary.push('');
+      }
+      if (result.keyFindings && Array.isArray(result.keyFindings)) {
+        result.keyFindings.forEach((finding: string) => {
+          summary.push(`• ${finding}`);
+        });
+        summary.push('');
+      }
+    }
+  });
+  
+  return summary.join('\n');
 }

@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Bot, Paperclip, Send, User, BarChart, CheckCircle, FileText } from 'lucide-react';
 import { useApp } from './app-provider';
-import type { ChatMessage, WeeklyData, WorkflowStep } from '@/lib/types';
+import type { ChatMessage, WeeklyData, WorkflowStep, OutlierData, ForecastData } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import AgentMonitorPanel from './agent-monitor';
 import DataVisualizer from './data-visualizer';
@@ -46,10 +46,11 @@ YOUR COMMUNICATION STYLE:
 - Always end with "What would you like to do next?"
 
 WHAT TO INCLUDE:
-✓ Data health check (Good/Needs attention)
+✓ Statistical summary (records, mean/median, range, trend, seasonality)
 ✓ Key patterns you noticed
-✓ Any concerns or opportunities
 ✓ Simple next step suggestions
+
+DO NOT mention outliers unless the user asks about outliers, anomalies, or a quality check.
 
 Example response:
 "📊 **Your Data at a Glance**
@@ -212,14 +213,14 @@ class MultiAgentChatHandler {
     const lowerMessage = userMessage.toLowerCase();
     const selectedAgents: string[] = [];
 
-    // Define sequential workflow for forecasting
+    // Define sequential workflow for forecasting (only on explicit action)
     const forecastingWorkflow = ['eda', 'forecasting'];
 
-    // Check if message matches forecasting keywords
-    if (/(forecast|predict|train|process|clean)/i.test(lowerMessage)) {
+    // Trigger only when user explicitly asks to run/generate/start a forecast
+    if (/(run|start|generate|create)\s+(a\s+)?forecast/i.test(lowerMessage) || /run.*forecast|generate.*forecast|start.*forecast/i.test(lowerMessage)) {
       this.dispatch({
         type: 'ADD_THINKING_STEP',
-        payload: '🔄 Dynamic workflow for forecasting triggered'
+        payload: '🔄 Forecasting workflow initiated'
       });
       return forecastingWorkflow;
     }
@@ -338,7 +339,7 @@ class MultiAgentChatHandler {
             { role: "system", content: systemPrompt },
             ...this.conversationHistory
           ],
-          temperature: 0.7,
+          temperature: 0.3,
           max_tokens: 800
         });
 
@@ -407,13 +408,14 @@ class MultiAgentChatHandler {
 
     if (selectedLob?.hasData) {
       const dq = selectedLob.dataQuality;
+      const wantsOutliers = /\b(outlier|anomal|quality\s*check)\b/i.test(userPrompt || '');
       dataContext = `
 📊 YOUR DATA:
 • ${selectedLob.recordCount} records
 • Data quality: ${dq?.completeness >= 90 ? 'Excellent' : dq?.completeness >= 70 ? 'Good' : 'Needs improvement'} (${dq?.completeness}% complete)
 • Trend: ${dq?.trend || 'Stable'}
 • Pattern: ${dq?.seasonality?.replace(/_/g, ' ') || 'No clear pattern yet'}
-• Outliers: ${dq?.outliers || 0} unusual values found
+${wantsOutliers ? `• Outliers: ${dq?.outliers || 0} potential anomalies` : ''}
 `;
 
       this.dispatch({ type: 'ADD_THINKING_STEP', payload: '✓ Context loaded' });
@@ -436,7 +438,9 @@ ${dataContext}
 3. Focus on ACTIONS they can take
 4. Be SPECIFIC to their business (${selectedLob?.name || 'their data'})
 5. End with "What would you like to do next?"
-6. Use emojis to make it friendly 😊
+6. If unsure, ask a clarifying question. Do not fabricate details.
+7. Only discuss outliers when the user asks about outliers, anomalies, or quality checks.
+8. Use emojis to make it friendly 😊
 
 Remember: You're ${agent.specialty} - use your expertise to help them succeed!`;
   }
@@ -444,17 +448,123 @@ Remember: You're ${agent.specialty} - use your expertise to help them succeed!`;
 
 let chatHandler: MultiAgentChatHandler | null = null;
 
+// Helper function to extract outliers from EDA response
+function extractOutliersFromResponse(responseText: string, data?: WeeklyData[]): OutlierData[] {
+  const outliers: OutlierData[] = [];
+  
+  if (!data || data.length === 0) return outliers;
+  
+  // Look for outlier mentions in the response
+  // Pattern 1: "X outliers found" or "X unusual values"
+  const outlierCountMatch = responseText.match(/(\d+)\s+(?:outliers?|unusual values?)/i);
+  
+  if (outlierCountMatch) {
+    const count = parseInt(outlierCountMatch[1]);
+    
+    // If outliers are mentioned, identify them from the data
+    // Use statistical method: values beyond 2 standard deviations
+    const values = data.map(d => d.Value);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const stdDev = Math.sqrt(
+      values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length
+    );
+    
+    data.forEach((point, index) => {
+      const zScore = Math.abs((point.Value - mean) / stdDev);
+      if (zScore > 2) {
+        const severity: 'high' | 'medium' | 'low' = 
+          zScore > 3 ? 'high' : zScore > 2.5 ? 'medium' : 'low';
+        
+        outliers.push({
+          index,
+          value: point.Value,
+          date: point.Date,
+          reason: `Value is ${zScore.toFixed(1)} standard deviations ${point.Value > mean ? 'above' : 'below'} mean`,
+          severity
+        });
+      }
+    });
+    
+    // Limit to the count mentioned in response
+    return outliers.slice(0, count);
+  }
+  
+  return outliers;
+}
+
+// Helper function to extract forecast data from forecasting response
+function extractForecastDataFromResponse(responseText: string, data?: WeeklyData[]): ForecastData[] {
+  const forecastData: ForecastData[] = [];
+  
+  if (!data || data.length === 0) return forecastData;
+  
+  // Check if data already contains forecast information
+  const dataWithForecast = data.filter(d => d.Forecast !== undefined);
+  
+  if (dataWithForecast.length > 0) {
+    // Extract forecast data from the WeeklyData
+    dataWithForecast.forEach(point => {
+      if (point.Forecast !== undefined) {
+        forecastData.push({
+          date: point.Date,
+          forecast: point.Forecast,
+          lower: point.ForecastLower ?? point.Forecast * 0.9, // Default to 10% below if not available
+          upper: point.ForecastUpper ?? point.Forecast * 1.1, // Default to 10% above if not available
+          confidence: 0.95 // Default confidence level
+        });
+      }
+    });
+  } else {
+    // Look for forecast period mention in response
+    const forecastPeriodMatch = responseText.match(/(\d+)[-\s]?(?:day|week|month)/i);
+    
+    if (forecastPeriodMatch) {
+      const period = parseInt(forecastPeriodMatch[1]);
+      
+      // Generate simple forecast based on trend (for demonstration)
+      // In production, this would come from the backend
+      const values = data.map(d => d.Value);
+      const lastValue = values[values.length - 1];
+      const avgGrowth = values.length > 1 
+        ? (values[values.length - 1] - values[0]) / values.length 
+        : 0;
+      
+      const lastDate = new Date(data[data.length - 1].Date);
+      
+      for (let i = 1; i <= Math.min(period, 30); i++) {
+        const forecastDate = new Date(lastDate);
+        forecastDate.setDate(forecastDate.getDate() + i * 7); // Weekly forecast
+        
+        const forecastValue = lastValue + (avgGrowth * i);
+        const margin = forecastValue * 0.1; // 10% confidence interval
+        
+        forecastData.push({
+          date: forecastDate,
+          forecast: forecastValue,
+          lower: forecastValue - margin,
+          upper: forecastValue + margin,
+          confidence: 0.95
+        });
+      }
+    }
+  }
+  
+  return forecastData;
+}
+
 // Enhanced Chat Bubble Component
-function ChatBubble({ 
-  message, 
-  onSuggestionClick, 
+function ChatBubble({
+  message,
+  onSuggestionClick,
   onVisualizeClick,
+  onViewInsightsClick,
   onGenerateReport,
-  thinkingSteps 
-}: { 
+  thinkingSteps
+}: {
   message: ChatMessage;
   onSuggestionClick: (suggestion: string) => void;
   onVisualizeClick: (messageId: string) => void;
+  onViewInsightsClick: (messageId: string) => void;
   onGenerateReport?: (messageId: string) => void;
   thinkingSteps: string[];
 }) {
@@ -544,6 +654,7 @@ function ChatBubble({
               data={message.visualization.data} 
               target={message.visualization.target as 'Value' | 'Orders'}
               isRealData={true}
+              showOutliers={message.visualization.showOutliers}
             />
           </div>
         )}
@@ -571,8 +682,17 @@ function ChatBubble({
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => onVisualizeClick(message.id)}>
               <BarChart className="mr-2 h-4 w-4 text-foreground" />
-              Visualize Data
+              {message.visualization.data.some((d: any) => d.Forecast !== undefined)
+                ? 'Visualize Actual & Forecast'
+                : message.visualization.showOutliers
+                ? 'Visualize Data with Outliers'
+                : 'Visualize Data'}
             </Button>
+            {message.visualization.data.some((d: any) => d.Forecast !== undefined) && (
+              <Button size="sm" variant="outline" onClick={() => onViewInsightsClick(message.id)}>
+                View Insights
+              </Button>
+            )}
           </div>
         )}
         {message.canGenerateReport && onGenerateReport && (
@@ -613,9 +733,9 @@ export default function ChatPanel({ className }: { className?: string }) {
     }
   }, [state.messages]);
 
-  // Handle queued prompts
+  // Handle queued prompts on mount
   useEffect(() => {
-    if (state.queuedUserPrompt) {
+    if (state.queuedUserPrompt && !state.isProcessing) {
       submitMessage(state.queuedUserPrompt);
       dispatch({ type: 'CLEAR_QUEUED_PROMPT' });
     }
@@ -644,6 +764,12 @@ export default function ChatPanel({ className }: { className?: string }) {
   // Submit message handler
   const submitMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
+    
+    // Prevent duplicate submissions
+    if (state.isProcessing) {
+      console.warn('Request already in progress, ignoring duplicate submission');
+      return;
+    }
     
     dispatch({ type: 'SET_PROCESSING', payload: true });
     dispatch({ type: 'CLEAR_THINKING_STEPS' });
@@ -751,25 +877,45 @@ export default function ChatPanel({ className }: { className?: string }) {
       }
       
       // Auto-detect visualization needs
-      const shouldVisualize = state.selectedLob?.hasData && state.selectedLob?.mockData && 
+      const shouldVisualize = state.selectedLob?.hasData && state.selectedLob?.timeSeriesData &&
         (/(visuali[sz]e|chart|plot|graph|trend|distribution)/i.test(messageText + content) ||
          (agentType === 'eda' && /pattern|trend|seasonality/i.test(content)));
 
-      let visualization: { data: WeeklyData[]; target: "Value" | "Orders"; isShowing: boolean } | undefined;
+      let visualization: { data: WeeklyData[]; target: "Value" | "Orders"; isShowing: boolean; showOutliers?: boolean } | undefined;
       if (shouldVisualize) {
         const isRevenue = /(revenue|sales|amount|gmv|income)/i.test(messageText + content);
+        const wantsOutliers = /(outlier|anomal|quality\s*check)/i.test(messageText);
         visualization = {
-          data: state.selectedLob!.mockData!,
+          data: state.selectedLob!.timeSeriesData!,
           target: isRevenue ? 'Value' : 'Orders',
           isShowing: false,
+          showOutliers: wantsOutliers
         };
       }
 
-      // Track analysis completion
+      // Track analysis completion and extract data
       if (agentType === 'eda') {
-        dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasEDA: true, lastAnalysisType: 'eda' } });
+        // Extract outliers from EDA response
+        const outliers = extractOutliersFromResponse(responseText, state.selectedLob?.timeSeriesData);
+        dispatch({ 
+          type: 'SET_ANALYZED_DATA', 
+          payload: { 
+            hasEDA: true, 
+            lastAnalysisType: 'eda',
+            outliers: outliers
+          } 
+        });
       } else if (agentType === 'forecasting') {
-        dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasForecasting: true, lastAnalysisType: 'forecasting' } });
+        // Extract forecast data from forecasting response
+        const forecastData = extractForecastDataFromResponse(responseText, state.selectedLob?.timeSeriesData);
+        dispatch({ 
+          type: 'SET_ANALYZED_DATA', 
+          payload: { 
+            hasForecasting: true, 
+            lastAnalysisType: 'forecasting',
+            forecastData: forecastData
+          } 
+        });
       } else if (agentType === 'comparative' || agentType === 'whatif') {
         dispatch({ type: 'SET_ANALYZED_DATA', payload: { hasInsights: true, lastAnalysisType: agentType } });
       }
@@ -818,13 +964,16 @@ export default function ChatPanel({ className }: { className?: string }) {
   
   // Visualize click handler
   const handleVisualizeClick = (messageId: string) => {
+    // Only toggle inline visualization; do not auto-open insights panel
+    dispatch({ type: 'TOGGLE_VISUALIZATION', payload: { messageId } });
+  };
+
+  const handleViewInsightsClick = (messageId: string) => {
     const msg = state.messages.find(m => m.id === messageId);
-    // Map target to expected values to fix type error
-    const target = msg?.visualization?.target === "Orders" ? "units" : "revenue";
+    const target = msg?.visualization?.target === 'Orders' ? 'units' : 'revenue';
     dispatch({ type: 'SET_DATA_PANEL_TARGET', payload: target });
     dispatch({ type: 'SET_DATA_PANEL_MODE', payload: 'chart' });
     dispatch({ type: 'SET_DATA_PANEL_OPEN', payload: true });
-    dispatch({ type: 'TOGGLE_VISUALIZATION', payload: { messageId } });
   };
 
   // Generate report handler
@@ -853,11 +1002,12 @@ export default function ChatPanel({ className }: { className?: string }) {
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
               <div className="p-4 space-y-4">
                 {state.messages.map(message => (
-                  <ChatBubble 
-                    key={message.id} 
-                    message={message} 
+                  <ChatBubble
+                    key={message.id}
+                    message={message}
                     onSuggestionClick={handleSuggestionClick}
                     onVisualizeClick={() => handleVisualizeClick(message.id)}
+                    onViewInsightsClick={() => handleViewInsightsClick(message.id)}
                     onGenerateReport={handleGenerateReport}
                     thinkingSteps={state.thinkingSteps}
                   />

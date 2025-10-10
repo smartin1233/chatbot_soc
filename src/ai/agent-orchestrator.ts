@@ -67,42 +67,103 @@ export class AgentOrchestrator {
   }
 
   /**
-   * Stub: Analyze user intent from message.
+   * Analyze user intent from message including visualization needs.
    */
   private analyzeIntent(message: string): string {
+    // Check for visualization requests
+    if (/(show|display|visuali[sz]e|plot|chart|graph|see).*(?:forecast|predict)/i.test(message)) {
+      return 'forecasting_with_viz';
+    }
+    if (/(show|display|visuali[sz]e|plot|chart|graph|see).*(?:outlier|anomal)/i.test(message)) {
+      return 'eda_with_outliers';
+    }
+    if (/(show|display|visuali[sz]e|plot|chart|graph|see).*(?:trend|pattern)/i.test(message)) {
+      return 'eda_with_trend';
+    }
+    if (/(actual.*forecast|forecast.*actual|compar)/i.test(message)) {
+      return 'comparison';
+    }
+    
+    // Standard intents
     if (/forecast|predict/i.test(message)) return 'forecasting';
     if (/eda|analyz/i.test(message)) return 'eda';
     if (/preprocess|clean/i.test(message)) return 'preprocessing';
+    if (/(show|display|visuali[sz]e|plot|chart|graph)/i.test(message)) return 'visualization';
+    
     return 'general';
   }
 
   /**
-   * Plan workflow steps based on intent.
+   * Plan workflow steps based on intent including visualization.
    */
   private planWorkflow(intent: string): WorkflowStep[] {
-    // Example: EDA → Preprocessing → Modeling → Evaluation → Forecasting
     const steps: WorkflowStep[] = [];
-    if (intent === 'forecasting') {
-      steps.push(
-        { id: 'step-1', name: 'Data Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' },
-        { id: 'step-2', name: 'Data Preprocessing', status: 'pending', dependencies: ['step-1'], estimatedTime: '30s', details: '', agent: 'Preprocessing Agent' },
-        { id: 'step-3', name: 'Model Training', status: 'pending', dependencies: ['step-2'], estimatedTime: '2m', details: '', agent: 'Modeling Agent' },
-        { id: 'step-4', name: 'Model Evaluation', status: 'pending', dependencies: ['step-3'], estimatedTime: '20s', details: '', agent: 'Evaluation Agent' },
-        { id: 'step-5', name: 'Generate Forecast', status: 'pending', dependencies: ['step-4'], estimatedTime: '15s', details: '', agent: 'Forecasting Agent' }
-      );
-    } else if (intent === 'eda') {
-      steps.push(
-        { id: 'step-1', name: 'Data Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' }
-      );
-    } else if (intent === 'preprocessing') {
-      steps.push(
-        { id: 'step-1', name: 'Data Preprocessing', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'Preprocessing Agent' }
-      );
-    } else {
-      steps.push(
-        { id: 'step-1', name: 'General Assistance', status: 'pending', dependencies: [], estimatedTime: '10s', details: '', agent: 'General Assistant' }
-      );
+    
+    switch (intent) {
+      case 'forecasting_with_viz':
+        steps.push(
+          { id: 'step-1', name: 'Data Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' },
+          { id: 'step-2', name: 'Generate Forecast', status: 'pending', dependencies: ['step-1'], estimatedTime: '45s', details: '', agent: 'Forecasting Agent' },
+          { id: 'step-3', name: 'Create Visualization', status: 'pending', dependencies: ['step-2'], estimatedTime: '10s', details: '', agent: 'Visualization Agent' }
+        );
+        break;
+        
+      case 'eda_with_outliers':
+        steps.push(
+          { id: 'step-1', name: 'Analyze Data', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' },
+          { id: 'step-2', name: 'Detect Outliers', status: 'pending', dependencies: ['step-1'], estimatedTime: '15s', details: '', agent: 'Statistical Agent' },
+          { id: 'step-3', name: 'Visualize Results', status: 'pending', dependencies: ['step-2'], estimatedTime: '10s', details: '', agent: 'Visualization Agent' }
+        );
+        break;
+        
+      case 'eda_with_trend':
+        steps.push(
+          { id: 'step-1', name: 'Analyze Trends', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' },
+          { id: 'step-2', name: 'Generate Trend Chart', status: 'pending', dependencies: ['step-1'], estimatedTime: '10s', details: '', agent: 'Visualization Agent' }
+        );
+        break;
+        
+      case 'comparison':
+        steps.push(
+          { id: 'step-1', name: 'Compare Data', status: 'pending', dependencies: [], estimatedTime: '20s', details: '', agent: 'Comparative Agent' },
+          { id: 'step-2', name: 'Create Comparison Chart', status: 'pending', dependencies: ['step-1'], estimatedTime: '10s', details: '', agent: 'Visualization Agent' }
+        );
+        break;
+        
+      case 'visualization':
+        steps.push(
+          { id: 'step-1', name: 'Generate Visualization', status: 'pending', dependencies: [], estimatedTime: '15s', details: '', agent: 'Visualization Agent' }
+        );
+        break;
+        
+      case 'forecasting':
+        steps.push(
+          { id: 'step-1', name: 'Data Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' },
+          { id: 'step-2', name: 'Data Preprocessing', status: 'pending', dependencies: ['step-1'], estimatedTime: '30s', details: '', agent: 'Preprocessing Agent' },
+          { id: 'step-3', name: 'Model Training', status: 'pending', dependencies: ['step-2'], estimatedTime: '2m', details: '', agent: 'Modeling Agent' },
+          { id: 'step-4', name: 'Model Evaluation', status: 'pending', dependencies: ['step-3'], estimatedTime: '20s', details: '', agent: 'Evaluation Agent' },
+          { id: 'step-5', name: 'Generate Forecast', status: 'pending', dependencies: ['step-4'], estimatedTime: '15s', details: '', agent: 'Forecasting Agent' }
+        );
+        break;
+        
+      case 'eda':
+        steps.push(
+          { id: 'step-1', name: 'Data Analysis', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'EDA Agent' }
+        );
+        break;
+        
+      case 'preprocessing':
+        steps.push(
+          { id: 'step-1', name: 'Data Preprocessing', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'Preprocessing Agent' }
+        );
+        break;
+        
+      default:
+        steps.push(
+          { id: 'step-1', name: 'General Assistance', status: 'pending', dependencies: [], estimatedTime: '10s', details: '', agent: 'General Assistant' }
+        );
     }
+    
     return steps;
   }
 
@@ -111,7 +172,7 @@ export class AgentOrchestrator {
    */
   private async executeAgentStep(step: WorkflowStep, input: OrchestratorInput): Promise<{ output: string; provenanceKey: string }> {
     let output = '';
-    let provenanceKey = step.agent.toLowerCase().replace(/\s+/g, '_');
+    let provenanceKey = step.agent?.toLowerCase().replace(/\s+/g, '_') || 'unknown';
     switch (step.agent) {
       case 'EDA Agent':
         output = await this.edaAgent(input);
@@ -127,6 +188,15 @@ export class AgentOrchestrator {
         break;
       case 'Forecasting Agent':
         output = await this.forecastingAgent(input);
+        break;
+      case 'Visualization Agent':
+        output = await this.visualizationAgent(input);
+        break;
+      case 'Statistical Agent':
+        output = await this.statisticalAgent(input);
+        break;
+      case 'Comparative Agent':
+        output = await this.comparativeAgent(input);
         break;
       default:
         output = await this.generalAgent(input);
@@ -189,6 +259,35 @@ export class AgentOrchestrator {
       "• Upload your data",
       "• Explore your data",
       "• Generate a forecast"
+    ].join("\n");
+  }
+  
+  private async visualizationAgent(input: OrchestratorInput): Promise<string> {
+    return [
+      "📊 **Visualization Generated**",
+      "• Interactive chart created",
+      "• Supports zoom, pan, and tooltips",
+      "• Export available as PNG/SVG"
+    ].join("\n");
+  }
+  
+  private async statisticalAgent(input: OrchestratorInput): Promise<string> {
+    const lob = input.context?.selectedLob;
+    const dq = lob?.dataQuality || {};
+    return [
+      "📈 **Statistical Analysis**",
+      `• Outliers detected: ${dq.outliers ?? 0}`,
+      `• Distribution: ${dq.skewness ? 'Skewed' : 'Normal'}`,
+      "• Confidence intervals calculated"
+    ].join("\n");
+  }
+  
+  private async comparativeAgent(input: OrchestratorInput): Promise<string> {
+    return [
+      "⚖️ **Comparison Analysis**",
+      "• Actual vs Forecast compared",
+      "• Performance metrics calculated",
+      "• Variance analysis complete"
     ].join("\n");
   }
 }

@@ -21,10 +21,23 @@ export default function WelcomeHero() {
   }, [prompt]);
 
   const canContinue = !!state.selectedBu && !!state.selectedLob;
+  
   const start = () => {
     if (canContinue) {
-      if (prompt.trim()) dispatch({ type: "QUEUE_USER_PROMPT", payload: prompt.trim() });
+      if (prompt.trim()) {
+        dispatch({ type: "QUEUE_USER_PROMPT", payload: prompt.trim() });
+      }
       dispatch({ type: "END_ONBOARDING" });
+    }
+  };
+
+  const handlePromptClick = (promptText: string) => {
+    if (canContinue) {
+      dispatch({ type: "QUEUE_USER_PROMPT", payload: promptText });
+      dispatch({ type: "END_ONBOARDING" });
+    } else {
+      // If BU/LOB not selected, fill the textarea
+      setPrompt((p) => (p ? `${p} ${promptText}` : promptText));
     }
   };
 
@@ -68,6 +81,14 @@ export default function WelcomeHero() {
                   placeholder="Describe what you need..."
                   className="flex-1 bg-background text-foreground placeholder:text-muted-foreground rounded-md px-4 py-3 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none overflow-hidden"
                   style={{ minHeight: "128px", height: "auto" }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (canContinue && prompt.trim()) {
+                        start();
+                      }
+                    }
+                  }}
                 />
                 <Button
                   type="submit"
@@ -119,7 +140,7 @@ export default function WelcomeHero() {
                 ];
               }
             })().map((s) => (
-              <Button key={s} size="sm" variant="outline" onClick={() => setPrompt((p) => (p ? `${p} ${s}` : s))}>
+              <Button key={s} size="sm" variant="outline" onClick={() => handlePromptClick(s)}>
                 {s}
               </Button>
             ))}

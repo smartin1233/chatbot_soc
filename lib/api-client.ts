@@ -1,248 +1,215 @@
 /**
- * Enhanced API Client with caching, rate limiting, and error handling
+ * Zentere API Client for fetching Business Units and Lines of Business
  */
 
-import OpenAI from 'openai';
+const API_BASE_URL = "https://app-api-dev.zentere.com/api/v2";
+const CLIENT_ID = "kLPrcbXlsHYelbpm5HzKg8ZgDE2rVXRhGyJ0GdqH";
+const CLIENT_SECRET = "IbqUkvq1hWTuc6jK7X6xGClTLThshJhfU6nf7uYm";
 
-// Cache implementation
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-  expires: number;
+interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
 }
 
-class APICache {
-  private cache = new Map<string, CacheEntry<any>>();
-  private maxSize = 100;
-  private defaultTTL = 5 * 60 * 1000; // 5 minutes
+interface DataFeedRecord {
+  id: number;
+  business_unit_id: [number, string] | false;
+  lob_id: [number, string] | false;
+  [key: string]: any;
+}
 
-  set<T>(key: string, data: T, ttl = this.defaultTTL): void {
-    // Simple LRU eviction
-    if (this.cache.size >= this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
-    }
+export class ZentereAPIClient {
+  private accessToken: string | null = null;
+  private tokenType: string = "Bearer";
 
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-      expires: Date.now() + ttl
+  async authenticate(username: string, password: string): Promise<void> {
+    const url = `${API_BASE_URL}/authentication/oauth2/token`;
+    
+    const formData = new URLSearchParams({
+      grant_type: 'password',
+      client_id: CLIENT_ID,
+      username: username,
+      password: password,
+      client_secret: CLIENT_SECRET
     });
-  }
 
-  get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-    
-    if (Date.now() > entry.expires) {
-      this.cache.delete(key);
-      return null;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Authentication failed: ${response.statusText}`);
     }
-    
-    return entry.data;
+
+    const data: AuthResponse = await response.json();
+    this.accessToken = data.access_token;
+    this.tokenType = data.token_type || "Bearer";
   }
 
-  clear(): void {
-    this.cache.clear();
-  }
+  private getHeaders(): HeadersInit {
+    if (!this.accessToken) {
+      throw new Error("Not authenticated. Call authenticate() first.");
+    }
 
-  getCacheStats() {
-    const now = Date.now();
-    const valid = Array.from(this.cache.values()).filter(entry => now < entry.expires);
     return {
-      total: this.cache.size,
-      valid: valid.length,
-      hitRate: valid.length / Math.max(this.cache.size, 1)
+      'Authorization': `${this.tokenType} ${this.accessToken}`,
+      'Content-Type': 'application/json',
     };
   }
-}
 
-// Rate limiter
-class RateLimiter {
-  private requests = new Map<string, number[]>();
-  private windowMs = 60000; // 1 minute
-  private maxRequests = 60; // 60 requests per minute
-
-  canMakeRequest(identifier: string): boolean {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
+  async searchRead(
+    model: string,
+    fields?: string[],
+    domain?: any[],
+    limit: number = 100,
+    offset: number = 0,
+    order?: string
+  ): Promise<any[]> {
+    const url = new URL(`${API_BASE_URL}/search_read`);
+    url.searchParams.append('model', model);
     
-    if (!this.requests.has(identifier)) {
-      this.requests.set(identifier, []);
+    if (fields) {
+      url.searchParams.append('fields', JSON.stringify(fields));
     }
-    
-    const requestTimes = this.requests.get(identifier)!;
-    // Remove old requests
-    const validRequests = requestTimes.filter(time => time > windowStart);
-    this.requests.set(identifier, validRequests);
-    
-    return validRequests.length < this.maxRequests;
-  }
-
-  recordRequest(identifier: string): void {
-    const now = Date.now();
-    if (!this.requests.has(identifier)) {
-      this.requests.set(identifier, []);
+    if (domain) {
+      url.searchParams.append('domain', JSON.stringify(domain));
     }
-    this.requests.get(identifier)!.push(now);
-  }
-}
-
-// Enhanced OpenAI client
-export class EnhancedOpenAIClient {
-  private client: OpenAI;
-  private cache = new APICache();
-  private rateLimiter = new RateLimiter();
-  private requestQueue: Array<() => Promise<void>> = [];
-  private processing = false;
-  
-  constructor() {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OpenAI API key is required');
+    if (limit) {
+      url.searchParams.append('limit', limit.toString());
     }
-    
-    this.client = new OpenAI({
-      apiKey,
-      dangerouslyAllowBrowser: true,
+    if (offset) {
+      url.searchParams.append('offset', offset.toString());
+    }
+    if (order) {
+      url.searchParams.append('order', order);
+    }
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: this.getHeaders(),
     });
-  }
 
-  private generateCacheKey(messages: any[], model: string, temperature: number): string {
-    const content = messages.map(m => m.content).join('|');
-    return `chat:${model}:${temperature}:${btoa(content).slice(0, 50)}`;
-  }
-
-  private async processQueue(): Promise<void> {
-    if (this.processing) return;
-    this.processing = true;
-
-    while (this.requestQueue.length > 0) {
-      const request = this.requestQueue.shift()!;
-      await request();
-      // Small delay to prevent overwhelming the API
-      await new Promise(resolve => setTimeout(resolve, 100));
+    if (!response.ok) {
+      throw new Error(`Search failed: ${response.statusText}`);
     }
 
-    this.processing = false;
+    return response.json();
   }
 
-  async createChatCompletion(params: {
-    model?: string;
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
-    temperature?: number;
-    max_tokens?: number;
-    useCache?: boolean;
-  }): Promise<any> {
-    const {
-      model = 'gpt-4o-mini',
-      messages,
-      temperature = 0.7,
-      max_tokens = 800,
-      useCache = true
-    } = params;
+  /**
+   * Fetch all unique Business Units from data_feeds
+   */
+  async getBusinessUnits(): Promise<Array<{ id: string; name: string }>> {
+    const records = await this.searchRead(
+      'data_feeds',
+      ['business_unit_id'],
+      undefined,
+      1000
+    );
 
-    // Check cache first
-    const cacheKey = this.generateCacheKey(messages, model, temperature);
-    if (useCache) {
-      const cached = this.cache.get(cacheKey);
-      if (cached) {
-        return { fromCache: true, ...cached };
+    const buMap = new Map<number, string>();
+    
+    records.forEach((record: DataFeedRecord) => {
+      if (record.business_unit_id && Array.isArray(record.business_unit_id)) {
+        const [id, name] = record.business_unit_id;
+        buMap.set(id, name);
       }
-    }
-
-    // Rate limiting check
-    const identifier = 'openai-chat';
-    if (!this.rateLimiter.canMakeRequest(identifier)) {
-      throw new Error('Rate limit exceeded. Please wait before making another request.');
-    }
-
-    return new Promise((resolve, reject) => {
-      const request = async () => {
-        try {
-          this.rateLimiter.recordRequest(identifier);
-          
-          const completion = await this.client.chat.completions.create({
-            model,
-            messages,
-            temperature,
-            max_tokens,
-          });
-
-          const response = {
-            id: completion.id,
-            choices: completion.choices,
-            usage: completion.usage,
-            model: completion.model
-          };
-
-          // Cache the response
-          if (useCache) {
-            this.cache.set(cacheKey, response);
-          }
-
-          resolve(response);
-        } catch (error) {
-          reject(this.handleError(error));
-        }
-      };
-
-      this.requestQueue.push(request);
-      this.processQueue();
     });
+
+    return Array.from(buMap.entries()).map(([id, name]) => ({
+      id: id.toString(),
+      name,
+    }));
   }
 
-  private handleError(error: any): Error {
-    if (error.status === 429) {
-      return new Error('Rate limit exceeded. Please wait a moment before trying again.');
-    } else if (error.status === 401) {
-      return new Error('Invalid API key. Please check your OpenAI configuration.');
-    } else if (error.status >= 500) {
-      return new Error('OpenAI service is temporarily unavailable. Please try again later.');
-    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      return new Error('Network connection failed. Please check your internet connection.');
-    }
+  /**
+   * Fetch all unique Lines of Business from data_feeds
+   */
+  async getLinesOfBusiness(): Promise<Array<{ id: string; name: string; businessUnitId: string }>> {
+    const records = await this.searchRead(
+      'data_feeds',
+      ['lob_id', 'business_unit_id'],
+      undefined,
+      1000
+    );
+
+    const lobMap = new Map<number, { name: string; businessUnitId: string }>();
     
-    return new Error(error.message || 'An unexpected error occurred with the AI service.');
+    records.forEach((record: DataFeedRecord) => {
+      if (record.lob_id && Array.isArray(record.lob_id)) {
+        const [lobId, lobName] = record.lob_id;
+        const buId = record.business_unit_id && Array.isArray(record.business_unit_id) 
+          ? record.business_unit_id[0].toString() 
+          : '';
+        
+        if (!lobMap.has(lobId)) {
+          lobMap.set(lobId, { name: lobName, businessUnitId: buId });
+        }
+      }
+    });
+
+    return Array.from(lobMap.entries()).map(([id, data]) => ({
+      id: id.toString(),
+      name: data.name,
+      businessUnitId: data.businessUnitId,
+    }));
   }
 
-  getCacheStats() {
-    return this.cache.getCacheStats();
-  }
+  /**
+   * Fetch complete Business Units with their Lines of Business
+   */
+  async getBusinessUnitsWithLOBs() {
+    const [businessUnits, linesOfBusiness] = await Promise.all([
+      this.getBusinessUnits(),
+      this.getLinesOfBusiness(),
+    ]);
 
-  clearCache(): void {
-    this.cache.clear();
-  }
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    const now = new Date();
 
-  getQueueSize(): number {
-    return this.requestQueue.length;
+    return businessUnits.map((bu, index) => ({
+      id: bu.id,
+      name: bu.name,
+      description: `Business Unit: ${bu.name}`,
+      code: `BU${bu.id}`,
+      startDate: now,
+      displayName: bu.name,
+      color: colors[index % colors.length],
+      createdDate: now,
+      updatedDate: now,
+      status: 'active' as const,
+      lobs: linesOfBusiness
+        .filter(lob => lob.businessUnitId === bu.id)
+        .map(lob => ({
+          id: lob.id,
+          name: lob.name,
+          description: `Line of Business: ${lob.name}`,
+          code: `LOB${lob.id}`,
+          businessUnitId: bu.id,
+          startDate: now,
+          hasData: true,
+          dataUploaded: now,
+          recordCount: 0,
+          dataQuality: { trend: 'stable' as const, seasonality: 'moderate' as const },
+          createdDate: now,
+          updatedDate: now,
+          status: 'active' as const,
+        })),
+    }));
   }
 }
 
 // Singleton instance
-export const openaiClient = new EnhancedOpenAIClient();
+let apiClientInstance: ZentereAPIClient | null = null;
 
-// Utility functions for validation
-export function validateChatMessage(message: string): { isValid: boolean; error?: string } {
-  if (!message || typeof message !== 'string') {
-    return { isValid: false, error: 'Message must be a non-empty string' };
+export function getAPIClient(): ZentereAPIClient {
+  if (!apiClientInstance) {
+    apiClientInstance = new ZentereAPIClient();
   }
-  
-  if (message.trim().length === 0) {
-    return { isValid: false, error: 'Message cannot be empty' };
-  }
-  
-  if (message.length > 10000) {
-    return { isValid: false, error: 'Message is too long (max 10,000 characters)' };
-  }
-  
-  return { isValid: true };
-}
-
-export function sanitizeUserInput(input: string): string {
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
-    .replace(/javascript:/gi, '') // Remove javascript: urls
-    .replace(/on\w+\s*=/gi, '') // Remove event handlers
-    .trim();
+  return apiClientInstance;
 }

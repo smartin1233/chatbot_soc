@@ -140,7 +140,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Footer */}
         <div className="text-center mt-8 text-sm text-gray-600 dark:text-gray-400">
-          <p>© 2024 Forecasting Dashboard. All rights reserved.</p>
+          {/* <p>© 2025 Forecasting Dashboard. All rights reserved.</p> */}
         </div>
       </div>
     </div>

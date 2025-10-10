@@ -452,8 +452,8 @@ export class EnhancedStatisticalAnalyzer {
     const confidenceLevels = [0.80, 0.90, 0.95];
     const zValues = [1.282, 1.645, 1.96];
     
-    return predicted.map(pred => {
-      const intervals = Object.fromEntries(
+    return predicted.map(pred => ({
+      ...Object.fromEntries(
         confidenceLevels.map((level, i) => [
           `confidence_${level}`,
           {
@@ -462,9 +462,8 @@ export class EnhancedStatisticalAnalyzer {
             confidence: level
           }
         ])
-      );
-      return intervals['confidence_0.95']; // Return 95% CI as default using bracket notation
-    });
+      )
+    })).map(intervals => intervals.confidence_0.95); // Return 95% CI as default
   }
 }
 

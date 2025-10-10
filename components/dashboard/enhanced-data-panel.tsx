@@ -15,9 +15,9 @@ import EnhancedDataVisualizer from "./enhanced-data-visualizer";
 import { Calendar } from "@/components/ui/calendar";
 import { addDays, isAfter, isBefore } from "date-fns";
 import { statisticalAnalyzer, insightsGenerator, type DataPoint } from "@/lib/statistical-analysis";
-import { 
-  TrendingUp, TrendingDown, AlertTriangle, CheckCircle, 
-  BarChart3, PieChart, LineChart, Activity, Target, 
+import {
+  TrendingUp, TrendingDown, AlertTriangle, CheckCircle,
+  BarChart3, PieChart, LineChart, Activity, Target,
   Zap, Brain, Eye, Download, RefreshCw, Filter
 } from "lucide-react";
 
@@ -106,9 +106,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
   // Advanced analytics processing
   const performAdvancedAnalytics = async () => {
     if (!state.selectedLob?.mockData) return;
-    
+
     setIsAnalyzing(true);
-    
+
     try {
       const dataPoints: DataPoint[] = state.selectedLob.mockData.map(item => ({
         date: new Date(item.Date),
@@ -117,8 +117,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       }));
 
       // Comprehensive analysis
-      const values = dataPoints.map(d => d.value);
-      const statisticalSummary = statisticalAnalyzer.calculateStatisticalSummary(values);
+      const statisticalSummary = statisticalAnalyzer.generateSummary(dataPoints);
       const trendAnalysis = statisticalAnalyzer.analyzeTrend(dataPoints);
       const seasonalityAnalysis = statisticalAnalyzer.analyzeSeasonality(dataPoints);
       const qualityReport = insightsGenerator.generateDataQualityReport(dataPoints);
@@ -133,10 +132,10 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       };
 
       setAnalyticsResults(results);
-      
+
       // Generate insight cards
       const cards: InsightCard[] = [];
-      
+
       // Data quality insights
       if (qualityReport.score < 80) {
         cards.push({
@@ -156,7 +155,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
           actionable: false
         });
       }
-      
+
       // Trend insights
       if (trendAnalysis.confidence > 0.7) {
         cards.push({
@@ -165,12 +164,12 @@ export default function EnhancedDataPanel({ className }: { className?: string })
           description: `Strong ${trendAnalysis.direction} trend with ${(trendAnalysis.confidence * 100).toFixed(0)}% confidence.`,
           severity: trendAnalysis.direction === 'increasing' ? 'success' : 'warning',
           actionable: true,
-          recommendation: trendAnalysis.direction === 'increasing' ? 
-            'Consider scaling operations to meet growing demand' : 
+          recommendation: trendAnalysis.direction === 'increasing' ?
+            'Consider scaling operations to meet growing demand' :
             'Investigate causes and develop intervention strategies'
         });
       }
-      
+
       // Seasonality insights
       if (seasonalityAnalysis.hasSeasonality) {
         cards.push({
@@ -207,7 +206,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       }
 
       setInsightCards(cards);
-      
+
     } catch (error) {
       console.error('Advanced analytics error:', error);
     } finally {
@@ -219,11 +218,11 @@ export default function EnhancedDataPanel({ className }: { className?: string })
   useEffect(() => {
     if (state.selectedLob?.hasData) {
       performAdvancedAnalytics();
-      
+
       // Set up auto-refresh every 30 seconds
       const interval = setInterval(performAdvancedAnalytics, 30000);
       setRefreshInterval(interval);
-      
+
       return () => {
         if (interval) clearInterval(interval);
       };
@@ -237,10 +236,10 @@ export default function EnhancedDataPanel({ className }: { className?: string })
     };
   }, [refreshInterval]);
 
-  const MetricCard = ({ title, metric, icon: Icon }: { 
-    title: string; 
-    metric: EnhancedMetrics; 
-    icon: React.ComponentType<any> 
+  const MetricCard = ({ title, metric, icon: Icon }: {
+    title: string;
+    metric: EnhancedMetrics;
+    icon: React.ComponentType<any>
   }) => {
     // All KPIs are units, not currency
     const formattedValue = (() => {
@@ -277,8 +276,8 @@ export default function EnhancedDataPanel({ className }: { className?: string })
               </Badge>
             </div>
           </div>
-          <Progress 
-            value={metric.confidence * 100} 
+          <Progress
+            value={metric.confidence * 100}
             className="mt-2 h-1"
           />
         </CardContent>
@@ -387,17 +386,17 @@ export default function EnhancedDataPanel({ className }: { className?: string })
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="ghost" 
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={performAdvancedAnalytics}
               disabled={isAnalyzing || !state.selectedLob?.hasData}
             >
               <RefreshCw className={cn("h-4 w-4", isAnalyzing && "animate-spin")} />
             </Button>
-            <Button 
-              size="sm" 
-              variant="ghost" 
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={() => dispatch({ type: 'SET_DATA_PANEL_OPEN', payload: false })}
             >
               Hide
@@ -456,9 +455,9 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       </CardHeader>
 
       <CardContent className="p-0 flex-1 min-h-0">
-        <Tabs 
-          value={state.dataPanelMode} 
-          onValueChange={(v) => dispatch({ type: 'SET_DATA_PANEL_MODE', payload: v as any })} 
+        <Tabs
+          value={state.dataPanelMode}
+          onValueChange={(v) => dispatch({ type: 'SET_DATA_PANEL_MODE', payload: v as any })}
           className="flex flex-col h-full"
           defaultValue="chart"
         >
