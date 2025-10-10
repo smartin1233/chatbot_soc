@@ -13,12 +13,14 @@ import { AppState } from './types';
 // Intent types based on design specification
 export enum IntentType {
   DATA_DESCRIPTION = 'data_description',
+  DETAILED_EDA = 'detailed_eda',
   OUTLIER_DETECTION = 'outlier_detection',
   PREPROCESSING = 'preprocessing',
   MODEL_TRAINING = 'model_training',
   FORECASTING_EXECUTION = 'forecasting_execution',
   FORECASTING_ANALYSIS = 'forecasting_analysis',
   INSIGHTS_REQUEST = 'insights_request',
+  VISUALIZE_DATA = 'visualize_data',
   GENERAL_QUERY = 'general_query'
 }
 
@@ -57,19 +59,26 @@ export class IntentAnalyzer {
   // Pattern definitions for intent classification
   private readonly patterns = {
     dataDescription: [
-      /\b(describe|explain|summarize|tell me about|what is|show me)\s+(the\s+)?(data|dataset|values|numbers)\b/i,
+      /\b(explore|show|display)\s+(the\s+)?(data|dataset)\b/i,
+      /\bexplore\s+(my\s+)?data\b/i,
       /\bwhat (does|do) (the\s+)?(data|dataset|values) (look like|show|contain)\b/i,
-      /\b(statistical|stats|statistics)\s+(summary|overview|analysis)\b/i,
       /\bgive me (a\s+)?(summary|overview) of (the\s+)?data\b/i,
-      /\bdata\s+(characteristics|properties|features)\b/i,
+      /\bdata\s+(overview|summary)\b/i,
+    ],
+    
+    detailedEDA: [
+      /\b(detailed|comprehensive|full|complete)\s+(eda|analysis|exploration)\b/i,
+      /\bperform\s+(detailed|comprehensive|full)\s+(eda|analysis)\b/i,
+      /\bdetailed\s+(data\s+)?(analysis|exploration)\b/i,
+      /\bcomprehensive\s+(data\s+)?(analysis|exploration)\b/i,
     ],
     
     outlierDetection: [
-      /\b(quality check|data quality|check quality)\b/i,
-      /\b(anomal(y|ies)|outlier(s)?|unusual|abnormal)\s+(value(s)?|point(s)?|data)?\b/i,
-      /\b(find|detect|identify|show|check for)\s+(anomal(y|ies)|outlier(s)?)\b/i,
-      /\b(data|value(s)?)\s+(issue(s)?|problem(s)?)\b/i,
+      /\b(check|detect|find|identify|show|analyze)\s+(for\s+)?(anomal(y|ies)|outlier(s)?)\b/i,
+      /\b(anomal(y|ies)|outlier(s)?)\s+(detection|analysis|check)\b/i,
       /\bare there any\s+(anomal(y|ies)|outlier(s)?|unusual value(s)?)\b/i,
+      /\bshow\s+(me\s+)?(the\s+)?(anomal(y|ies)|outlier(s)?)\b/i,
+      /\bdetect\s+(data\s+)?(anomal(y|ies)|outlier(s)?)\b/i,
     ],
     
     preprocessing: [
@@ -176,6 +185,7 @@ export class IntentAnalyzer {
     
     // Score each intent type based on pattern matches
     scores.set(IntentType.DATA_DESCRIPTION, this.scorePatterns(message, this.patterns.dataDescription));
+    scores.set(IntentType.DETAILED_EDA, this.scorePatterns(message, this.patterns.detailedEDA));
     scores.set(IntentType.OUTLIER_DETECTION, this.scorePatterns(message, this.patterns.outlierDetection));
     scores.set(IntentType.PREPROCESSING, this.scorePatterns(message, this.patterns.preprocessing));
     scores.set(IntentType.MODEL_TRAINING, this.scorePatterns(message, this.patterns.modelTraining));
@@ -398,12 +408,14 @@ export class IntentAnalyzer {
   private identifyTargetAgents(intentType: IntentType, context: UserContext): string[] {
     const agentMap: Record<IntentType, string[]> = {
       [IntentType.DATA_DESCRIPTION]: ['eda_agent'],
-      [IntentType.OUTLIER_DETECTION]: ['eda_agent', 'preprocessing_agent'],
+      [IntentType.DETAILED_EDA]: ['eda_agent'],
+      [IntentType.OUTLIER_DETECTION]: ['outlier_detection_agent'],
       [IntentType.PREPROCESSING]: ['preprocessing_agent'],
       [IntentType.MODEL_TRAINING]: ['model_training_agent'],
       [IntentType.FORECASTING_EXECUTION]: ['forecasting_agent', 'validation_agent'],
       [IntentType.FORECASTING_ANALYSIS]: ['bi_analyst_agent'],
       [IntentType.INSIGHTS_REQUEST]: ['insights_agent', 'bi_analyst_agent'],
+      [IntentType.VISUALIZE_DATA]: ['visualization_agent'],
       [IntentType.GENERAL_QUERY]: ['general_agent'],
     };
     
@@ -433,11 +445,26 @@ export class IntentAnalyzer {
         break;
       case IntentType.DATA_DESCRIPTION:
         hints.push('exclude_outlier_analysis');
-        hints.push('focus_on_statistics');
+        hints.push('focus_on_basic_statistics');
+        hints.push('simple_exploration_only');
+        break;
+      case IntentType.DETAILED_EDA:
+        hints.push('comprehensive_analysis');
+        hints.push('include_outlier_analysis');
+        hints.push('detailed_patterns');
         break;
       case IntentType.OUTLIER_DETECTION:
         hints.push('activate_outlier_detection');
-        hints.push('prepare_visualization');
+        hints.push('detailed_outlier_info');
+        hints.push('prepare_visualization_with_outliers');
+        break;
+      case IntentType.VISUALIZE_DATA:
+        hints.push('show_visualization');
+        hints.push('highlight_outliers_if_detected');
+        break;
+      case IntentType.MODEL_TRAINING:
+        hints.push('show_training_form_first');
+        hints.push('collect_parameters');
         break;
       case IntentType.PREPROCESSING:
         hints.push('provide_step_by_step_guidance');

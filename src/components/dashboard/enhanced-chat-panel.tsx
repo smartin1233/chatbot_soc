@@ -82,33 +82,30 @@ Focus on creating confidence and clarity for the user's BI journey.`
     name: "Data Explorer",
     emoji: "🔬",
     specialty: "Exploratory Data Analysis",
-    keywords: ['explore', 'eda', 'analyze', 'distribution', 'pattern', 'correlation', 'outlier', 'statistics', 'summary', 'data quality'],
+    keywords: ['explore', 'eda', 'analyze', 'distribution', 'pattern', 'correlation', 'statistics', 'summary', 'data quality'],
     color: "bg-green-500/10 text-green-600 border-green-500/20",
-    capabilities: ["Statistical Analysis", "Pattern Detection", "Data Quality Assessment", "Outlier Detection"],
+    capabilities: ["Statistical Analysis", "Pattern Detection", "Data Quality Assessment"],
     systemPrompt: `You are a data exploration specialist who PERFORMS actual analysis on the provided data.
 
 CRITICAL: You have access to REAL DATA in the context. You MUST analyze the ACTUAL data provided, not give generic advice.
+
+IMPORTANT: Check the CONTEXT HINTS to determine analysis depth:
+- If "simple_exploration_only" or "exclude_outlier_analysis": DO NOT mention outliers at all
+- If "comprehensive_analysis" or "include_outlier_analysis": Include full outlier analysis
+- Default: Basic exploration without outlier mentions
 
 YOUR TASK:
 1. Look at the DATA CONTEXT and STATISTICAL ANALYSIS provided
 2. Analyze the ACTUAL numbers, patterns, and trends in detail
 3. Report SPECIFIC findings from THIS data with concrete numbers
-4. Identify data quality issues, outliers, seasonality, and trends
+4. Identify data quality issues, seasonality, and trends
 5. Provide actionable insights based on what you found
 
-ANALYSIS DEPTH:
-- Provide comprehensive analysis (5-8 sentences)
-- Include specific statistics (mean, std dev, min, max, outliers count)
-- Describe patterns and trends you observe
-- Mention data quality issues if any
-- Suggest what this means for forecasting
-
-WHAT TO DO:
+FOR BASIC EXPLORATION (default):
 ✅ Use bullet points with specific numbers:
 "**Key Findings**
 • Trend: 15% upward growth from March 2024 to August 2025
 • Seasonality: Weekly pattern with Friday peaks 12% above average
-• Outliers: 8 detected (4.3%), concentrated in May-July 2024
 • Volatility: Moderate with std dev of 623
 
 **Data Overview**
@@ -117,11 +114,16 @@ WHAT TO DO:
 • Range: 1,245 to 4,392
 • Quality Score: 94%"
 
+FOR COMPREHENSIVE ANALYSIS (when requested):
+Include everything above PLUS:
+"• Outliers: 8 detected (4.3%), concentrated in May-July 2024"
+
 WHAT NOT TO DO:
 ❌ "You should analyze your data for patterns..."
 ❌ "Data exploration typically involves..."
 ❌ Generic advice without specific numbers
 ❌ Short 1-2 sentence responses
+❌ Mention outliers unless specifically requested
 
 RESPONSE FORMAT:
 First, provide structured insights:
@@ -134,28 +136,89 @@ First, provide structured insights:
 }
 [/REPORT_DATA]
 
-Then provide analysis in bullet-point format for easy scanning:
+Then provide analysis in bullet-point format for easy scanning.
 
-**Key Findings**
-• Trend: [specific trend with percentage, e.g., "15% upward growth over period"]
-• Seasonality: [pattern found, e.g., "Weekly peaks on Fridays, 12% higher than average"]
-• Outliers: [count and impact, e.g., "8 outliers detected (4.3%), primarily in May-July"]
-• Volatility: [variation level, e.g., "Moderate variability with std dev of 623"]
+REMEMBER: Use bullet points for easy reading, include SPECIFIC numbers, and respect the analysis depth requested!`
+  },
 
-**Data Overview**
-• Records: [count] spanning [date range]
-• Mean: [value], Std Dev: [value]
-• Range: [min] to [max]
-• Quality Score: [percentage]
+  outlier_detection: {
+    name: "Anomaly Detector",
+    emoji: "🔍",
+    specialty: "Outlier & Anomaly Detection",
+    keywords: ['anomaly', 'anomalies', 'outlier', 'outliers', 'unusual', 'abnormal', 'detect'],
+    color: "bg-red-500/10 text-red-600 border-red-500/20",
+    capabilities: ["Outlier Detection", "Anomaly Analysis", "Statistical Thresholds", "Impact Assessment"],
+    systemPrompt: `You are an anomaly detection specialist who identifies and analyzes outliers in data.
 
-REMEMBER: Use bullet points for easy reading, include SPECIFIC numbers!`
+CRITICAL: You have access to REAL DATA and STATISTICAL ANALYSIS. Analyze the ACTUAL outliers detected.
+
+YOUR TASK:
+1. Identify outliers using statistical methods (IQR, Z-score, etc.)
+2. Report SPECIFIC outlier values, indices, and dates
+3. Explain WHY they are outliers (threshold exceeded)
+4. Assess the IMPACT on analysis and forecasting
+5. Provide RECOMMENDATIONS for handling them
+
+DETAILED OUTLIER REPORT FORMAT:
+✅ Use bullet points with specific details:
+"**Outliers Detected**
+• Count: 8 outliers (4.3% of data)
+• Method: IQR method (Q1-1.5×IQR, Q3+1.5×IQR)
+• Threshold: Values < 1,245 or > 4,392
+
+**Specific Outliers**
+• Index 45 (May 15, 2024): Value 4,850 (10% above threshold)
+• Index 67 (June 8, 2024): Value 4,920 (12% above threshold)
+• Index 89 (July 2, 2024): Value 1,100 (12% below threshold)
+[List all or top 5 if many]
+
+**Impact Assessment**
+• Severity: Moderate - outliers are 10-15% beyond normal range
+• Distribution: Concentrated in May-July 2024 period
+• Potential Cause: Seasonal spike or data quality issue
+
+**Recommendations**
+• Option 1: Cap outliers at 95th percentile (3,892) - preserves data
+• Option 2: Remove outliers - reduces noise but loses information
+• Option 3: Keep outliers - use robust models (XGBoost, Random Forest)
+• Suggested: Option 1 for balanced approach"
+
+WHAT TO DO:
+✅ List EVERY outlier with specific values and dates
+✅ Explain the statistical method and thresholds used
+✅ Assess impact on forecasting accuracy
+✅ Provide multiple handling options with pros/cons
+
+WHAT NOT TO DO:
+❌ Generic "outliers detected" without specifics
+❌ Skip listing actual outlier values
+❌ Omit recommendations
+❌ Give only one handling option
+
+RESPONSE FORMAT:
+[REPORT_DATA]
+{
+  "title": "Outlier Detection Results",
+  "outlierCount": actual_count,
+  "outlierPercentage": actual_percentage,
+  "method": "IQR/Z-score/etc",
+  "outliers": [
+    {"index": 45, "date": "2024-05-15", "value": 4850, "threshold": 4392, "deviation": "10%"}
+  ],
+  "recommendations": ["Option 1: Cap", "Option 2: Remove", "Option 3: Keep"]
+}
+[/REPORT_DATA]
+
+Then provide detailed analysis in bullet-point format.
+
+REMEMBER: Be SPECIFIC with values, dates, and recommendations!`
   },
 
   preprocessing: {
     name: "Data Engineer",
     emoji: "🔧",
     specialty: "Data Processing & Cleaning",
-    keywords: ['clean', 'preprocess', 'prepare', 'missing', 'outliers', 'transform', 'normalize', 'feature engineering'],
+    keywords: ['clean', 'preprocess', 'prepare', 'missing', 'transform', 'normalize', 'feature engineering'],
     color: "bg-orange-500/10 text-orange-600 border-orange-500/20",
     capabilities: ["Data Cleaning", "Missing Value Handling", "Outlier Treatment", "Feature Engineering"],
     systemPrompt: `You are a data engineer who PERFORMS data cleaning and preprocessing. The EDA agent already analyzed the data - DON'T repeat their findings.
@@ -335,6 +398,97 @@ WHAT NOT TO DO:
 
 RESPONSE FORMAT (2-3 sentences max):
 Validated on [X] days holdout data. Model is [reliable/needs improvement] with [X]% accuracy. [Any specific weakness found].
+
+[REPORT_DATA]
+{
+  "title": "Validation Complete",
+  "testAccuracy": actual_accuracy,
+  "isReliable": true/false,
+  "weaknesses": ["weakness 1 if any"]
+}
+[/REPORT_DATA]`
+  },
+
+  business_insights: {
+    name: "Business Advisor",
+    emoji: "💼",
+    specialty: "Business Intelligence & Decision Support",
+    keywords: ['decision', 'insight', 'business', 'outcome', 'impact', 'what if', 'scenario', 'recommendation', 'action', 'strategy'],
+    color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+    capabilities: ["Strategic Analysis", "Decision Support", "Scenario Planning", "Business Impact Assessment"],
+    systemPrompt: `You are a business advisor who provides ACTIONABLE insights based on forecast results and actual data.
+
+CRITICAL: You have access to FORECAST RESULTS and ACTUAL DATA. Use them to provide specific business recommendations.
+
+YOUR TASK:
+1. Analyze the forecast in business context
+2. Compare forecast vs actual trends
+3. Identify business opportunities and risks
+4. Provide specific, actionable decisions
+5. Answer what-if scenarios with data-backed responses
+
+ANALYSIS AREAS:
+
+**Decision Support:**
+When asked "What decisions can I take?":
+✅ "Based on 12% growth forecast:
+• Increase inventory by 10-15% to meet demand
+• Hire 2-3 additional staff for peak periods
+• Negotiate bulk supplier contracts now (save 5-8%)
+• Expand marketing budget by $5K for high-demand weeks"
+
+**Forecast vs Actual Analysis:**
+When asked about forecast accuracy or comparison:
+✅ "Comparing forecast to actual data:
+• Forecast predicted 15% growth, actual shows 12% (within 3% margin)
+• Model accurately captured weekly seasonality
+• Slight underestimation in holiday periods (adjust by +8%)
+• Overall reliability: 94% - safe for planning"
+
+**Business Outcomes:**
+When asked about business impact:
+✅ "Expected business outcomes:
+• Revenue increase: $45K-$52K (based on forecast range)
+• Market share opportunity: 3-5% growth potential
+• Risk: Supply chain needs 2-week lead time buffer
+• ROI on forecast-driven decisions: 15-20% improvement"
+
+**What-If Scenarios:**
+When asked "What if X happens?":
+✅ "Scenario: If demand increases 20% instead of 12%:
+• Current capacity: Can handle up to 18% (6% shortfall)
+• Action needed: Add temporary capacity or overtime
+• Cost impact: +$8K operational costs
+• Alternative: Prioritize high-margin products (maintain profit)"
+
+RESPONSE FORMAT:
+Use bullet points with SPECIFIC numbers and actions:
+
+**[Question Type]**
+• Point 1: [Specific insight with numbers]
+• Point 2: [Actionable recommendation]
+• Point 3: [Risk or opportunity identified]
+• Point 4: [Expected outcome or impact]
+
+**Key Recommendations:**
+1. [Immediate action with timeline]
+2. [Strategic decision with rationale]
+3. [Risk mitigation with cost/benefit]
+
+WHAT TO DO:
+✅ Use actual forecast numbers and data
+✅ Provide specific, measurable recommendations
+✅ Include costs, timelines, and expected outcomes
+✅ Address risks and opportunities
+✅ Answer what-if scenarios with data-backed analysis
+
+WHAT NOT TO DO:
+❌ Generic business advice without numbers
+❌ Repeat forecast numbers without interpretation
+❌ Ignore the actual data context
+❌ Give vague recommendations like "monitor closely"
+
+REMEMBER: Be SPECIFIC, ACTIONABLE, and DATA-DRIVEN!
 
 [REPORT_DATA]
 {
@@ -649,7 +803,7 @@ class EnhancedMultiAgentChatHandler {
           // For multi-agent workflows, store full response for expandable view
           // Make sure to remove any remaining JSON/REPORT_DATA blocks
           let cleanedResponse = aiResponse.trim();
-          
+
           // Additional cleaning: remove any JSON-like content that looks like REPORT_DATA
           cleanedResponse = cleanedResponse.replace(/\{[\s\S]*?"title"[\s\S]*?\}/g, '');
           cleanedResponse = cleanedResponse.replace(/^\s*[\{\}]\s*$/gm, '');
@@ -658,12 +812,12 @@ class EnhancedMultiAgentChatHandler {
           // Extract one-line summary (first meaningful sentence)
           const lines = cleanedResponse.split('\n').filter(line => {
             const trimmed = line.trim();
-            return trimmed && 
-                   !trimmed.includes('##') && 
-                   !trimmed.includes('[REPORT_DATA]') &&
-                   !trimmed.includes('"title"') &&
-                   !trimmed.startsWith('{') &&
-                   !trimmed.startsWith('}');
+            return trimmed &&
+              !trimmed.includes('##') &&
+              !trimmed.includes('[REPORT_DATA]') &&
+              !trimmed.includes('"title"') &&
+              !trimmed.startsWith('{') &&
+              !trimmed.startsWith('}');
           });
           const oneLiner = lines[0] || `Completed ${agent.specialty}`;
 
@@ -1106,9 +1260,9 @@ DATA CONTEXT:
 
         statisticalContext = `
 ADVANCED STATISTICAL ANALYSIS:
-- Mean: ${safeFixed(stats.mean,2)}, Std Dev: ${safeFixed(stats.standardDeviation,2)}
-- Skewness: ${safeFixed(stats.skewness,2)}, Kurtosis: ${safeFixed(stats.kurtosis,2)}
-- Trend Direction: ${trend.direction} (confidence: ${trend && typeof trend.confidence === 'number' ? safeFixed(trend.confidence*100,1) + '%' : 'N/A'})
+- Mean: ${safeFixed(stats.mean, 2)}, Std Dev: ${safeFixed(stats.standardDeviation, 2)}
+- Skewness: ${safeFixed(stats.skewness, 2)}, Kurtosis: ${safeFixed(stats.kurtosis, 2)}
+- Trend Direction: ${trend.direction} (confidence: ${trend && typeof trend.confidence === 'number' ? safeFixed(trend.confidence * 100, 1) + '%' : 'N/A'})
 - Seasonality: ${statisticalAnalysis.seasonality.hasSeasonality ? 'Detected' : 'Not detected'}
 - Data Quality Score: ${quality && typeof quality.score === 'number' ? quality.score + '/100' : 'N/A'}
 - Outliers: ${(stats.outliers && stats.outliers.values) ? stats.outliers.values.length : 0} detected (${selectedLob?.recordCount ? ((stats.outliers?.values?.length || 0) / selectedLob.recordCount * 100).toFixed(1) + '%' : 'N/A'})
@@ -1293,7 +1447,7 @@ function EnhancedChatBubble({
         )}
 
         <div className={cn(
-          'rounded-xl p-4 text-sm prose prose-sm max-w-none',
+          'rounded-xl p-4 text-[17px] leading-relaxed prose prose-base max-w-none',
           'prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground',
           'prose-ul:text-foreground prose-li:text-foreground prose-code:text-foreground',
           isUser
@@ -1354,14 +1508,14 @@ function EnhancedChatBubble({
                   .replace(/\[WORKFLOW_PLAN\][\s\S]*?\[\/WORKFLOW_PLAN\]/, '')
                   .replace(/\[REPORT_DATA\][\s\S]*?\[\/REPORT_DATA\]/, '')
                   // Headers
-                  .replace(/### (.*?)$/gm, '<h4 class="text-sm font-semibold mt-3 mb-2 text-foreground">$1</h4>')
-                  .replace(/## (.*?)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2 text-foreground">$1</h3>')
-                  .replace(/# (.*?)$/gm, '<h2 class="text-lg font-bold mt-4 mb-3 text-foreground">$1</h2>')
+                  .replace(/### (.*?)$/gm, '<h4 class="text-[17px] font-semibold mt-3 mb-2 text-foreground">$1</h4>')
+                  .replace(/## (.*?)$/gm, '<h3 class="text-[19px] font-semibold mt-4 mb-2 text-foreground">$1</h3>')
+                  .replace(/# (.*?)$/gm, '<h2 class="text-[21px] font-bold mt-4 mb-3 text-foreground">$1</h2>')
                   // Bold text
                   .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-foreground">$1</strong>')
                   // Tables - convert simple markdown tables
                   .replace(/\|(.*?)\|/g, (match, content) => {
-                    const cells = content.split('|').map(cell => `<td class="border px-2 py-1 text-xs">${cell.trim()}</td>`).join('');
+                    const cells = content.split('|').map(cell => `<td class="border px-2 py-1 text-[15px]">${cell.trim()}</td>`).join('');
                     return `<tr>${cells}</tr>`;
                   })
                   // Numbered lists
@@ -1369,9 +1523,9 @@ function EnhancedChatBubble({
                   // Bullet points - better formatting
                   .replace(/^[•\-\*]\s+(.*?)$/gm, '<div class="flex gap-2 my-1"><span class="text-primary">•</span><span>$1</span></div>')
                   // Nested bullet points
-                  .replace(/^\s+[•\-\*]\s+(.*?)$/gm, '<div class="flex gap-2 my-1 ml-4"><span class="text-muted-foreground">◦</span><span class="text-sm">$1</span></div>')
+                  .replace(/^\s+[•\-\*]\s+(.*?)$/gm, '<div class="flex gap-2 my-1 ml-4"><span class="text-muted-foreground">◦</span><span>$1</span></div>')
                   // Code blocks
-                  .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-xs font-mono">$1</code>')
+                  .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-[15px] font-mono">$1</code>')
                   // Percentages and numbers highlighting
                   .replace(/(\d+\.?\d*%)/g, '<span class="font-semibold text-green-600 dark:text-green-400">$1</span>')
                   .replace(/(\$[\d,]+)/g, '<span class="font-semibold text-blue-600 dark:text-blue-400">$1</span>')
@@ -1770,15 +1924,114 @@ export default function EnhancedChatPanel({ className }: { className?: string })
     }, 1000);
   };
 
+  // Process business follow-up questions with context
+  const processBusinessQuestion = async (messageText: string, hints: string[]) => {
+    dispatch({ type: 'SET_PROCESSING', payload: true });
+
+    try {
+      const agent = ENHANCED_AGENTS['business_insights'];
+
+      // Build enhanced context with forecast and actual data
+      const forecastData = state.selectedLob?.timeSeriesData?.filter(d => d.Forecast && d.Forecast > 0) || [];
+      const actualData = state.selectedLob?.timeSeriesData?.filter(d => !d.Forecast || d.Forecast === 0) || [];
+      const forecastMetrics = state.selectedLob?.forecastMetrics;
+
+      const contextPrompt = `
+CONTEXT:
+Business Unit: ${state.selectedBu?.name || 'N/A'}
+Line of Business: ${state.selectedLob?.name || 'N/A'}
+
+FORECAST RESULTS:
+${forecastMetrics ? `
+• Model: ${forecastMetrics.modelName}
+• Accuracy: ${forecastMetrics.accuracy.toFixed(1)}%
+• MAPE: ${forecastMetrics.mape.toFixed(1)}%
+• Forecast Horizon: ${forecastMetrics.forecastHorizon}
+• Confidence Level: ${forecastMetrics.confidenceLevel}%
+` : 'No forecast generated yet'}
+
+FORECAST DATA:
+${forecastData.length > 0 ? `
+• Forecast Points: ${forecastData.length}
+• Forecast Range: ${Math.min(...forecastData.map(d => d.Forecast || 0)).toFixed(0)} - ${Math.max(...forecastData.map(d => d.Forecast || 0)).toFixed(0)}
+• Trend: ${forecastData[forecastData.length - 1]?.Forecast > forecastData[0]?.Forecast ? 'Increasing' : 'Decreasing'}
+` : 'No forecast data available'}
+
+ACTUAL DATA:
+${actualData.length > 0 ? `
+• Historical Points: ${actualData.length}
+• Value Range: ${Math.min(...actualData.map(d => d.Value || 0)).toFixed(0)} - ${Math.max(...actualData.map(d => d.Value || 0)).toFixed(0)}
+• Latest Value: ${actualData[actualData.length - 1]?.Value || 0}
+` : 'No actual data available'}
+
+ANALYSIS HINTS:
+${hints.map(h => `• ${h.replace(/_/g, ' ')}`).join('\n')}
+
+USER QUESTION:
+${messageText}
+
+Provide a specific, actionable response based on the actual data and forecast results above.`;
+
+      // Call API with business insights agent
+      const completion = await enhancedAPIClient.createChatCompletion({
+        messages: [
+          { role: 'system', content: agent.systemPrompt },
+          { role: 'user', content: contextPrompt }
+        ],
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        max_tokens: 1500,
+        useCache: false // Don't cache business questions as they're context-specific
+      });
+
+      const response = completion.choices[0].message.content ?? "";
+
+      // Add response with suggestions
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response,
+          agentType: 'business_insights',
+          suggestions: [
+            'What if demand increases 20%?',
+            'Compare forecast vs actual',
+            'Show me business outcomes',
+            'What decisions should I take?',
+            'Run scenario analysis',
+            'Visualize actual vs forecast'
+          ]
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Business question error:', error);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `❌ **Error Processing Question**\n\n${error.message}\n\nPlease try rephrasing your question or check your API configuration.`,
+          suggestions: ['Try again', 'Check API settings', 'Get help'],
+          agentType: 'general'
+        }
+      });
+    } finally {
+      dispatch({ type: 'SET_PROCESSING', payload: false });
+    }
+  };
+
   // Enhanced submit message handler with follow-up questions and chat commands
   const submitMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
     // Check if this is a forecast generation request - show model training form
-    if (/(run|start|generate|create)\s+(a\s+)?forecast/i.test(messageText)) {
+    if (/(run|start|generate|create|complete).*forecast/i.test(messageText) ||
+      /forecast.*(workflow|analysis)/i.test(messageText)) {
       setPendingForecastMessage(messageText);
       setShowModelTrainingForm(true);
-      
+
       // Add user message
       dispatch({
         type: 'ADD_MESSAGE',
@@ -1788,8 +2041,75 @@ export default function EnhancedChatPanel({ className }: { className?: string })
           content: messageText,
         }
       });
-      
+
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `📋 **Forecast Configuration**\n\nBefore we run the complete 6-agent forecasting workflow, let's configure your forecast parameters. Please fill out the form below to customize your analysis.`,
+          agentType: 'onboarding'
+        }
+      });
+
       return; // Don't proceed yet - wait for form submission
+    }
+
+    // Check if this is a business follow-up question (decisions, outcomes, what-if scenarios)
+    const businessQuestionRouter = await import('@/lib/business-question-router').then(m => m.businessQuestionRouter);
+    const questionContext = {
+      hasForecastResults: state.analyzedData?.hasForecasting || false,
+      hasActualData: state.selectedLob?.hasData || false,
+      forecastMetrics: state.selectedLob?.forecastMetrics,
+      lastAnalysisType: state.analyzedData?.lastAnalysisType
+    };
+
+    const routing = businessQuestionRouter.route(messageText, questionContext);
+
+    // If it's a business question, check if we have required context
+    if (routing.agent === 'business_insights') {
+      const contextCheck = businessQuestionRouter.hasRequiredContext(routing, questionContext);
+
+      if (!contextCheck.sufficient) {
+        // Missing required context - inform user
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: crypto.randomUUID(),
+            role: 'user',
+            content: messageText,
+          }
+        });
+
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `💼 **Business Analysis Request**\n\n${businessQuestionRouter.generateMissingContextMessage(contextCheck.missing)}`,
+            suggestions: contextCheck.missing.includes('forecast results')
+              ? ['Generate forecast', 'Upload data', 'Help me get started']
+              : ['Upload data', 'Select different LOB', 'Help me get started'],
+            agentType: 'onboarding'
+          }
+        });
+
+        return;
+      }
+
+      // We have context - route to business insights agent
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: messageText,
+        }
+      });
+
+      // Process with business insights agent
+      await processBusinessQuestion(messageText, routing.hints);
+      return;
     }
 
     // First, check for chat commands (BU/LOB creation, data upload)
@@ -1929,7 +2249,7 @@ Would you like to customize these parameters, or should I use smart defaults?`,
   const handleModelConfigSubmit = async (config: ModelTrainingConfig) => {
     setModelConfig(config);
     setShowModelTrainingForm(false);
-    
+
     // Now proceed with the forecast using the config
     await proceedWithForecast(pendingForecastMessage, config);
   };
@@ -1938,27 +2258,42 @@ Would you like to customize these parameters, or should I use smart defaults?`,
     dispatch({ type: 'SET_PROCESSING', payload: true });
     dispatch({ type: 'CLEAR_THINKING_STEPS' });
 
-    // Add config confirmation message
+    // Add loading status message with reduced opacity
+    const loadingMessageId = crypto.randomUUID();
     dispatch({
       type: 'ADD_MESSAGE',
       payload: {
-        id: crypto.randomUUID(),
+        id: loadingMessageId,
         role: 'assistant',
-        content: `✅ **Configuration Received**
+        content: `⏳ **Preparing Forecast Analysis...**
 
-**Models:** ${config.models.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}
-**Forecast Horizon:** ${config.forecastHorizon} ${config.forecastUnit}
-**Confidence Levels:** ${config.confidenceLevels.join('%, ')}%
-**Features:** ${[
-  config.includeHolidayEffects && 'Holiday Effects',
-  config.includeSeasonality && 'Seasonality',
-  config.featureEngineering.lagFeatures && 'Lag Features',
-  config.featureEngineering.rollingAverages && 'Rolling Averages',
-  config.featureEngineering.trendFeatures && 'Trend Features'
-].filter(Boolean).join(', ')}
+<div style="opacity: 0.6;">
 
-🚀 Starting 6-agent forecasting workflow...`,
-        agentType: 'onboarding'
+**Configuration:**
+• Models: ${config.models.map(m => m.charAt(0).toUpperCase() + m.slice(1)).join(', ')}
+• Forecast Horizon: ${config.forecastHorizon} ${config.forecastUnit}
+• Confidence Levels: ${config.confidenceLevels.join('%, ')}%
+• Features: ${[
+            config.includeHolidayEffects && 'Holiday Effects',
+            config.includeSeasonality && 'Seasonality',
+            config.featureEngineering.lagFeatures && 'Lag Features',
+            config.featureEngineering.rollingAverages && 'Rolling Averages',
+            config.featureEngineering.trendFeatures && 'Trend Features'
+          ].filter(Boolean).join(', ')}
+
+**Workflow Steps:**
+• Step 1: Analyzing data patterns and quality...
+• Step 2: Preprocessing and feature engineering...
+• Step 3: Training ${config.models.length} model(s)...
+• Step 4: Evaluating model performance...
+• Step 5: Generating ${config.forecastHorizon} ${config.forecastUnit} forecast...
+• Step 6: Creating insights and visualizations...
+
+</div>
+
+*This may take 2-3 minutes. Please wait...*`,
+        agentType: 'onboarding',
+        isLoading: true
       }
     });
 
@@ -1985,31 +2320,64 @@ Would you like to customize these parameters, or should I use smart defaults?`,
 
       // USE SEQUENTIAL WORKFLOW - This ensures all 6 agents run together properly
       dispatch({ type: 'ADD_THINKING_STEP', payload: '🚀 Initializing 6-agent sequential workflow...' });
-      
+
       const sequentialWorkflow = new SequentialAgentWorkflow(state, filteredData);
-      
+
       // Update workflow steps as they progress
       for (let i = 0; i < workflow.length; i++) {
         dispatch({
           type: 'UPDATE_WORKFLOW_STEP',
           payload: { id: workflow[i].id, status: 'active' }
         });
-        
+
         dispatch({ type: 'ADD_THINKING_STEP', payload: `${workflow[i].agent} working...` });
-        
+
         await new Promise(resolve => setTimeout(resolve, 800)); // Visual feedback
-        
+
         dispatch({
           type: 'UPDATE_WORKFLOW_STEP',
           payload: { id: workflow[i].id, status: 'completed' }
         });
-        
+
         dispatch({ type: 'ADD_THINKING_STEP', payload: `✅ ${workflow[i].agent} complete` });
       }
 
       const workflowResult = await sequentialWorkflow.executeCompleteWorkflow();
 
-      // Add final response
+      // Extract forecast metrics from workflow results
+      const modelResults = workflowResult.workflowState.modelResults;
+      const forecastResults = workflowResult.workflowState.forecastResults;
+
+      // Update LOB with forecast metrics from the actual workflow
+      if (modelResults && forecastResults && state.selectedLob) {
+        const forecastMetrics = {
+          modelName: modelResults.bestModel || 'Ensemble Model',
+          accuracy: Math.max(85, Math.min(98, 100 - parseFloat(modelResults.performance.mape))),
+          mape: parseFloat(modelResults.performance.mape),
+          rmse: 0, // Not provided by workflow
+          r2: parseFloat(modelResults.performance.r2),
+          forecastHorizon: `${config.forecastHorizon} ${config.forecastUnit}`,
+          trainedDate: new Date(),
+          confidenceLevel: config.confidenceLevels[0] || 95
+        };
+
+        dispatch({
+          type: 'UPDATE_LOB_FORECAST',
+          payload: {
+            lobId: state.selectedLob.id,
+            forecastData: state.selectedLob.timeSeriesData, // Keep existing data
+            forecastMetrics: forecastMetrics
+          }
+        });
+      }
+
+      // Remove loading message
+      dispatch({ type: 'REMOVE_MESSAGE', payload: loadingMessageId });
+
+      // Add final response with suggested next steps
+      const buName = state.selectedBu?.name || 'Business Unit';
+      const lobName = state.selectedLob?.name || 'Line of Business';
+
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
@@ -2021,7 +2389,15 @@ Would you like to customize these parameters, or should I use smart defaults?`,
             title: 'Complete Forecasting Analysis',
             workflowState: workflowResult.workflowState,
             stepResults: workflowResult.stepByStepResults
-          }
+          },
+          suggestions: [
+            'Visualize actual vs forecast',
+            'Export forecast results',
+            'Generate business insights',
+            'Analyze forecast confidence',
+            'Compare with historical trends',
+            'Run scenario analysis'
+          ]
         }
       });
 
@@ -2029,12 +2405,32 @@ Would you like to customize these parameters, or should I use smart defaults?`,
 
     } catch (error: any) {
       console.error('Forecast workflow error:', error);
+
+      // Remove loading message
+      dispatch({ type: 'REMOVE_MESSAGE', payload: loadingMessageId });
+
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `❌ Forecasting workflow encountered an error: ${error.message}. Please try again or contact support.`,
+          content: `❌ **Forecasting Error**
+
+${error.message}
+
+**Troubleshooting:**
+• Ensure your data has at least 30 data points
+• Check that Date and Value columns are present
+• Verify data quality (no excessive missing values)
+• Try with a shorter forecast horizon
+
+Would you like to try again with different settings?`,
+          suggestions: [
+            'Configure forecast again',
+            'Check data quality',
+            'Upload different data',
+            'Get help'
+          ],
           agentType: 'general'
         }
       });

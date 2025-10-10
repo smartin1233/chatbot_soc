@@ -58,6 +58,7 @@ type Action =
   | { type: 'SET_SELECTED_BU'; payload: BusinessUnit | null }
   | { type: 'SET_SELECTED_LOB'; payload: LineOfBusiness | null }
   | { type: 'ADD_MESSAGE'; payload: ChatMessage }
+  | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'UPDATE_LAST_MESSAGE'; payload: Partial<ChatMessage> }
   | { type: 'STREAM_UPDATE_LAST_MESSAGE'; payload: { contentChunk: string } }
   | { type: 'SET_PROCESSING'; payload: boolean }
@@ -125,9 +126,9 @@ const initialState: AppState = {
   queuedUserPrompt: null,
   insightsPanelOpen: false,
   dateRange: {
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
     end: new Date(),
-    preset: 'last_30_days'
+    preset: 'last_90_days'
   },
   analyzedData: {
     hasEDA: false,
@@ -219,6 +220,11 @@ function appReducer(state: AppState, action: Action): AppState {
       const messages = state.messages.filter(m => !m.isTyping || action.payload.isTyping);
       return { ...state, messages: [...messages, action.payload] };
     }
+    case 'REMOVE_MESSAGE':
+      return { 
+        ...state, 
+        messages: state.messages.filter(m => m.id !== action.payload) 
+      };
     case 'UPDATE_LAST_MESSAGE':
       const updatedMessages = [...state.messages];
       const lastMessageIndex = updatedMessages.length - 1;

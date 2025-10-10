@@ -57,7 +57,7 @@ export default function EnhancedDataVisualizer({
       const forecastLower = trend ? trend * 0.9 : undefined;
       
       // Mark outliers
-      const isOutlier = statisticalAnalysis?.statistical?.outliers.indices.includes(index) || false;
+      const isOutlier = statisticalAnalysis?.statistical?.outliers?.indices?.includes(index) || false;
       
       // Create separate fields for actual and forecast to avoid plotting 0 values
       // ActualValue: only has value for historical data (where Forecast is undefined or 0)
@@ -348,6 +348,7 @@ export default function EnhancedDataVisualizer({
                   {/* Moving average line - only show if no forecast */}
                   {!processedData.some(d => d.Forecast !== undefined) && (
                     <Line 
+                      yAxisId="actual"
                       type="monotone" 
                       dataKey="movingAverage" 
                       stroke="#82ca9d" 
@@ -361,6 +362,7 @@ export default function EnhancedDataVisualizer({
                   {/* Trend line - only show if no forecast */}
                   {insights && !processedData.some(d => d.Forecast !== undefined) && (
                     <Line 
+                      yAxisId="actual"
                       type="linear" 
                       dataKey="trend" 
                       stroke="#ffc658" 

@@ -901,7 +901,7 @@ export default function EnhancedDataPanel({ className }: { className?: string })
                     <TableBody>
                       {vizData.map((row, i) => {
                         const efficiency = row.Value / (row.Orders || 1);
-                        const isOutlier = analyticsResults?.statistical?.outliers.indices.includes(i);
+                        const isOutlier = analyticsResults?.statistical?.outliers?.indices?.includes(i) || false;
                         return (
                           <TableRow key={i} className={isOutlier ? "bg-yellow-50/50 dark:bg-yellow-950/20" : ""}>
                             <TableCell className="font-medium">

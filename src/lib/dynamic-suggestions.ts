@@ -49,7 +49,7 @@ export class DynamicSuggestionGenerator {
 
     // PRIORITY: Check what's been completed and suggest next steps
     // This ensures we never suggest something already done
-    
+
     // If forecast is complete, suggest post-forecast actions
     if (userActivity.hasGeneratedForecast) {
       const suggestions: string[] = [];
@@ -87,7 +87,7 @@ export class DynamicSuggestionGenerator {
       return [
         'Clean and preprocess data',
         'Run complete forecast',
-        'Handle outliers',
+        'Check for anomaly/outliers',
         'Engineer features'
       ];
     }
@@ -183,7 +183,7 @@ export class DynamicSuggestionGenerator {
    */
   private getAgentSpecificSuggestions(agentType: string, activity: UserActivity): string[] {
     const suggestions: string[] = [];
-    
+
     switch (agentType) {
       case 'eda':
         // After EDA, suggest next logical steps (NOT EDA again)
@@ -253,7 +253,7 @@ export class DynamicSuggestionGenerator {
       default:
         return this.getAdvancedSuggestions(activity);
     }
-    
+
     // Return only 4 unique suggestions
     return [...new Set(suggestions)].slice(0, 4);
   }

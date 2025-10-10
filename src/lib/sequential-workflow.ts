@@ -86,13 +86,13 @@ export class SequentialAgentWorkflow {
 
   private async executeEDAStep(): Promise<{ result: any; response: string }> {
     const { rawData, buLobContext } = this.currentState;
-    
+
     // Actual data analysis using the LOB data
     const values = rawData.map(item => item.Value || item.value || 0);
     const dates = rawData.map(item => new Date(item.Date || item.date));
-    
+
     const outlierCount = this.detectOutlierCount(values);
-    
+
     const analysisResults = {
       recordCount: rawData.length,
       statistics: {
@@ -125,41 +125,41 @@ ${outlierCount > 0 ? `• **Outliers Detected:** ${outlierCount} data points` : 
 • **Trend Direction:** ${analysisResults.trend.direction} (${(analysisResults.trend.strength * 100).toFixed(0)}% confidence)
 
 **Business Insights for ${buLobContext.businessUnit} - ${buLobContext.lineOfBusiness}:**
-${analysisResults.trend.direction === 'increasing' ? 
-  `📈 Strong growth trend in ${buLobContext.lineOfBusiness} indicates positive momentum` :
-  analysisResults.trend.direction === 'decreasing' ?
-  `📉 Declining trend in ${buLobContext.lineOfBusiness} requires attention` :
-  `➡️ Stable performance in ${buLobContext.lineOfBusiness} with consistent patterns`}`;
+${analysisResults.trend.direction === 'increasing' ?
+        `📈 Strong growth trend in ${buLobContext.lineOfBusiness} indicates positive momentum` :
+        analysisResults.trend.direction === 'decreasing' ?
+          `📉 Declining trend in ${buLobContext.lineOfBusiness} requires attention` :
+          `➡️ Stable performance in ${buLobContext.lineOfBusiness} with consistent patterns`}`;
 
     return { result: analysisResults, response };
   }
 
   private async executePreprocessingStep(): Promise<{ result: any; response: string }> {
     const { rawData, analysisResults, buLobContext } = this.currentState;
-    
+
     // Process the data based on EDA results
     let processedData = [...rawData];
     const processingSteps: string[] = [];
-    
+
     // Handle missing values
     const missingCount = rawData.filter(item => !item.Value && !item.value).length;
     if (missingCount > 0) {
       processedData = this.handleMissingValues(processedData);
       processingSteps.push(`Handled ${missingCount} missing values`);
     }
-    
+
     // Detect outliers from EDA results (use actual outlier count from analysis)
     const values = rawData.map(item => item.Value || item.value || 0);
     const outlierCount = this.detectOutlierCount(values);
-    
+
     if (outlierCount > 0) {
       processingSteps.push(`Identified ${outlierCount} outliers (retained for model robustness)`);
     }
-    
+
     // Create features
     processedData = this.createFeatures(processedData);
     processingSteps.push('Created rolling averages and lag features');
-    
+
     const cleaningReport = {
       originalRecords: rawData.length,
       processedRecords: processedData.length,
@@ -191,7 +191,7 @@ ${processingSteps.map(step => `• ${step}`).join('\n')}
 
   private async executeModelingStep(): Promise<{ result: any; response: string }> {
     const { processedData, buLobContext } = this.currentState;
-    
+
     // Simulate model training with actual data characteristics
     const models = ['Prophet', 'XGBoost', 'LightGBM'];
     const bestModel = models[Math.floor(Math.random() * models.length)];
@@ -224,7 +224,7 @@ ${processingSteps.map(step => `• ${step}`).join('\n')}
 
   private async executeValidationStep(): Promise<{ result: any; response: string }> {
     const { modelResults, buLobContext } = this.currentState;
-    
+
     const validationResults = {
       overallScore: 0.92,
       deploymentReady: true,
@@ -251,12 +251,12 @@ ${processingSteps.map(step => `• ${step}`).join('\n')}
 
   private async executeForecastingStep(): Promise<{ result: any; response: string }> {
     const { rawData, buLobContext } = this.currentState;
-    
+
     // Generate forecasts based on actual data
     const lastValue = rawData[rawData.length - 1]?.Value || rawData[rawData.length - 1]?.value || 10000;
     const trendFactor = Math.random() * 0.3 - 0.1; // -10% to +20% change
     const forecastValue = Math.floor(lastValue * (1 + trendFactor));
-    
+
     const forecastResults = {
       pointForecast: {
         value: forecastValue,
@@ -283,18 +283,18 @@ ${processingSteps.map(step => `• ${step}`).join('\n')}
 • **95% Confidence:** ${forecastResults.confidenceIntervals['95%'].lower.toLocaleString()} - ${forecastResults.confidenceIntervals['95%'].upper.toLocaleString()}
 
 **Business Impact Assessment:**
-${trendFactor > 0.1 ? 
-  `🎯 Growth expected for ${buLobContext.lineOfBusiness} - consider capacity planning` :
-  trendFactor < -0.05 ?
-  `⚠️ Decline projected for ${buLobContext.lineOfBusiness} - intervention recommended` :
-  `📊 Stable performance expected for ${buLobContext.lineOfBusiness}`}`;
+${trendFactor > 0.1 ?
+        `🎯 Growth expected for ${buLobContext.lineOfBusiness} - consider capacity planning` :
+        trendFactor < -0.05 ?
+          `⚠️ Decline projected for ${buLobContext.lineOfBusiness} - intervention recommended` :
+          `📊 Stable performance expected for ${buLobContext.lineOfBusiness}`}`;
 
     return { result: forecastResults, response };
   }
 
   private async executeInsightsStep(): Promise<{ result: any; response: string }> {
     const { forecastResults, buLobContext } = this.currentState;
-    
+
     const insights = {
       strategicInsights: [
         `${buLobContext.lineOfBusiness} forecast shows ${forecastResults.pointForecast.changePercent}% expected change`,
@@ -328,7 +328,7 @@ ${insights.recommendations.immediate.map(rec => `• ${rec}`).join('\n')}
 ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
 
 **Expected Business Impact:**
-• **Revenue Impact:** ${forecastResults.pointForecast.changePercent}% change expected
+• **Growth Impact:** ${forecastResults.pointForecast.changePercent}% change expected
 • **Planning Efficiency:** Improved forecasting accuracy for ${buLobContext.businessUnit}
 • **Strategic Advantage:** Data-driven decision making for ${buLobContext.lineOfBusiness}`;
 
@@ -345,15 +345,15 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
 
   private analyzeTrend(values: number[]): { direction: string; strength: number } {
     if (values.length < 2) return { direction: 'stable', strength: 0 };
-    
+
     const firstHalf = values.slice(0, Math.floor(values.length / 2));
     const secondHalf = values.slice(Math.floor(values.length / 2));
-    
+
     const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
     const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
-    
+
     const change = (secondAvg - firstAvg) / firstAvg;
-    
+
     return {
       direction: change > 0.05 ? 'increasing' : change < -0.05 ? 'decreasing' : 'stable',
       strength: Math.abs(change)
@@ -365,9 +365,9 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
     const missingFields = data.reduce((count, item) => {
       return count + Object.values(item).filter(val => val === null || val === undefined || val === '').length;
     }, 0);
-    
+
     const completeness = ((totalFields - missingFields) / totalFields) * 100;
-    
+
     return {
       score: Math.floor(completeness * 0.9 + Math.random() * 10),
       completeness: Math.floor(completeness)
@@ -376,14 +376,14 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
 
   private detectOutlierCount(values: number[]): number {
     if (values.length < 4) return 0;
-    
+
     const sorted = [...values].sort((a, b) => a - b);
     const q1 = sorted[Math.floor(sorted.length * 0.25)];
     const q3 = sorted[Math.floor(sorted.length * 0.75)];
     const iqr = q3 - q1;
     const lowerBound = q1 - 1.5 * iqr;
     const upperBound = q3 + 1.5 * iqr;
-    
+
     return values.filter(v => v < lowerBound || v > upperBound).length;
   }
 
@@ -399,14 +399,14 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
   private createFeatures(data: any[]): any[] {
     return data.map((item, index) => {
       const value = item.Value || item.value || 0;
-      
+
       // Calculate rolling averages
       const window7 = data.slice(Math.max(0, index - 6), index + 1);
       const window30 = data.slice(Math.max(0, index - 29), index + 1);
-      
+
       const avg7 = window7.reduce((sum, d) => sum + (d.Value || d.value || 0), 0) / window7.length;
       const avg30 = window30.reduce((sum, d) => sum + (d.Value || d.value || 0), 0) / window30.length;
-      
+
       return {
         ...item,
         '7_day_avg': avg7,
