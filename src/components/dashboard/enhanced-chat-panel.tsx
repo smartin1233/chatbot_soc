@@ -1704,7 +1704,7 @@ function EnhancedChatBubble({
                   <div className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">
                     🔑 API Configuration Required
                   </div>
-                  <div className="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                  <div className="text-xs text-blue-700 dark:text-blue-400 mb-3">
                     To use the AI-powered analysis features, please configure at least one API provider:
                   </div>
                   <div className="flex gap-2">
@@ -2991,7 +2991,7 @@ Would you like to try again with different settings?`,
       dispatch({
         type: 'UPDATE_LAST_MESSAGE',
         payload: {
-          content: `✅ **Capacity Planning Complete!**\n\nI've calculated the required headcount for ${results.weeklyHC.length} weeks based on your assumptions.\n\n**Summary:**\n• Total Required HC: ${results.summary?.totalHC || 0}\n• Average Weekly HC: ${results.summary?.avgHC || 0}\n• Peak HC: ${results.summary?.maxHC || 0} (Week ${results.summary?.maxWeek || 'N/A'})\n• Minimum HC: ${results.summary?.minHC || 0} (Week ${results.summary?.minWeek || 'N/A'})\n\nView the detailed breakdown below:`,
+          content: `✅ **Capacity Planning Complete!**\n\nI've calculated the required headcount for ${results.weeklyHC.length} weeks based on your assumptions.\n\n**Summary:**\n• Total Required HC: ${results.summary?.totalHC || 0}\n• Average Weekly HC: ${results.summary?.avgHC || 0}\n• Peak HC: ${results.summary?.maxHC?.value || 0} (Week ${results.summary?.maxHC?.week ? new Date(results.summary.maxHC.week).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'})\n• Minimum HC: ${results.summary?.minHC?.value || 0} (Week ${results.summary?.minHC?.week ? new Date(results.summary.minHC.week).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'})\n\nView the detailed breakdown below:`,
           isTyping: false,
           showCapacityPlanning: true,
           suggestions: [
