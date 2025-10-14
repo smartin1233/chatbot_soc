@@ -21,10 +21,37 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
   const [currentPage, setCurrentPage] = useState(1);
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const [customDateRange, setCustomDateRange] = useState({
-    startDate: state.capacityPlanning.dateRange.startDate || '',
-    endDate: state.capacityPlanning.dateRange.endDate || ''
+    startDate: isoDateToWeek(state.capacityPlanning.dateRange.startDate || ''),
+    endDate: isoDateToWeek(state.capacityPlanning.dateRange.endDate || '')
   });
   const resultsPerPage = 10;
+
+  // Helper function to convert week format to ISO date
+  const weekToISODate = (weekString: string): string => {
+    if (!weekString || !weekString.includes('-W')) {
+      return weekString; // Already in ISO format
+    }
+    // Format: YYYY-Www
+    const [year, week] = weekString.split('-W');
+    const date = new Date(parseInt(year), 0, 1);
+    const dayOfWeek = date.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    date.setDate(date.getDate() + daysToMonday + (parseInt(week) - 1) * 7);
+    return date.toISOString().split('T')[0];
+  };
+
+  // Helper function to convert ISO date to week format for input
+  const isoDateToWeek = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const date = new Date(isoDate);
+    const year = date.getFullYear();
+    const firstDayOfYear = new Date(year, 0, 1);
+    const dayOfWeek = firstDayOfYear.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const firstMonday = new Date(year, 0, 1 + daysToMonday);
+    const weekNumber = Math.ceil(((date.getTime() - firstMonday.getTime()) / 86400000 + 1) / 7);
+    return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+  };
 
   // Check if capacity planning is enabled
   if (!state.capacityPlanning.enabled) {
@@ -66,12 +93,12 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
     if (field === 'startDate' && customDateRange.endDate) {
       dispatch({
         type: 'SET_CAPACITY_DATE_RANGE',
-        payload: { startDate: value, endDate: customDateRange.endDate }
+        payload: { startDate: weekToISODate(value), endDate: customDateRange.endDate }
       });
     } else if (field === 'endDate' && customDateRange.startDate) {
       dispatch({
         type: 'SET_CAPACITY_DATE_RANGE',
-        payload: { startDate: customDateRange.startDate, endDate: value }
+        payload: { startDate: customDateRange.startDate, endDate: weekToISODate(value) }
       });
     }
   };
@@ -119,8 +146,8 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       const results = await workflow.executeCapacityPlanningStep(
         localAssumptions,
         {
-          startDate: customDateRange.startDate,
-          endDate: customDateRange.endDate
+          startDate: weekToISODate(customDateRange.startDate),
+          endDate: weekToISODate(customDateRange.endDate)
         }
       );
 
