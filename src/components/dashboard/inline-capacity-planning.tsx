@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 
 interface InlineCapacityPlanningProps {
@@ -18,6 +19,11 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
   const [localAssumptions, setLocalAssumptions] = useState(state.capacityPlanning.assumptions);
   const [isCalculating, setIsCalculating] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
+  const [customDateRange, setCustomDateRange] = useState({
+    startDate: state.capacityPlanning.dateRange.startDate || '',
+    endDate: state.capacityPlanning.dateRange.endDate || ''
+  });
   const resultsPerPage = 10;
 
   // Check if capacity planning is enabled
