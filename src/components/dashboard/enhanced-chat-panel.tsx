@@ -25,6 +25,7 @@ import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
 import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 import ModelTrainingForm, { type ModelTrainingConfig } from './model-training-form';
 import { InlineCapacityPlanning } from './inline-capacity-planning';
+import { AssumptionsPreview } from './assumptions-preview';
 
 const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
 
@@ -601,7 +602,7 @@ class EnhancedMultiAgentChatHandler {
       ];
     }
     // Data exploration only (no forecasting unless specifically requested)
-    else if (/(explore|eda|data quality|pattern|distribution|statistics)/i.test(lowerMessage) && !/(forecast|predict|future)/i.test(lowerMessage)) {
+    else if (/(explore|eda|data quality|pattern|distribution)/i.test(lowerMessage) && !/(forecast|predict|future)/i.test(lowerMessage)) {
       selectedAgents.push('eda');
       reasoning = 'Data exploration and analysis requested';
       workflow = [
@@ -1692,7 +1693,7 @@ function EnhancedChatBubble({
 
         {/* Enhanced Visualization Display */}
         {message.visualization?.isShowing && message.visualization.data && (
-          <div className="mt-3 rounded-lg border bg-card p-3">
+          <div className="mt-3 rounded-lg border bg-card/50 backdrop-blur-sm">
             <DataVisualizer
               data={message.visualization.data}
               target={message.visualization.target as 'Value' | 'Orders'}
