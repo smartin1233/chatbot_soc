@@ -1256,9 +1256,9 @@ ${previewTable}${lob.recordCount > 10 ? `\n... +${lob.recordCount - 10} more rec
                 />
             )}
 
-            {businessUnits.flatMap(bu => bu.lobs).map(lob => (
+            {businessUnits.flatMap(bu => bu.lobs.map(lob => ({ bu, lob }))).map(({ bu, lob }) => (
                 <input
-                    key={lob.id}
+                    key={`${bu.id}-${lob.id}`}
                     type="file"
                     ref={(el) => { fileInputRefs.current[lob.id] = el }}
                     className="hidden"
