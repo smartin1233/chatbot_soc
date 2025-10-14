@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from './app-provider';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,6 +65,24 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       </Card>
     );
   }
+
+  // Initialize date range in week format from state
+  const initialStartWeek = state.capacityPlanning.dateRange.startDate 
+    ? isoDateToWeek(state.capacityPlanning.dateRange.startDate)
+    : '';
+  const initialEndWeek = state.capacityPlanning.dateRange.endDate
+    ? isoDateToWeek(state.capacityPlanning.dateRange.endDate)
+    : '';
+
+  // Update customDateRange if state changes
+  useEffect(() => {
+    if (state.capacityPlanning.dateRange.startDate && state.capacityPlanning.dateRange.endDate) {
+      setCustomDateRange({
+        startDate: isoDateToWeek(state.capacityPlanning.dateRange.startDate),
+        endDate: isoDateToWeek(state.capacityPlanning.dateRange.endDate)
+      });
+    }
+  }, [state.capacityPlanning.dateRange.startDate, state.capacityPlanning.dateRange.endDate]);
 
   // Handle assumption change
   const handleAssumptionChange = (field: keyof typeof localAssumptions, value: string) => {
