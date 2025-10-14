@@ -57,6 +57,12 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       dispatch({ type: 'SET_CAPACITY_STATUS', payload: 'calculating' });
 
       const timeSeriesData = state.selectedLob?.timeSeriesData || [];
+      
+      console.log('🔍 Capacity Planning Debug:');
+      console.log('📊 Total data points:', timeSeriesData.length);
+      console.log('📊 Sample data point:', timeSeriesData[0]);
+      console.log('📊 Data properties:', timeSeriesData[0] ? Object.keys(timeSeriesData[0]) : 'No data');
+      console.log('📅 Date range:', state.capacityPlanning.dateRange);
 
       if (!state.capacityPlanning.dateRange.startDate || !state.capacityPlanning.dateRange.endDate) {
         throw new Error('Date range not available. Please run forecasting first.');
@@ -67,8 +73,15 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
         timeSeriesData
       );
 
+      // Separate actual and forecasted data
+      const actualData = timeSeriesData.filter(d => !d.Forecast || d.Forecast === 0);
+      const forecastedData = timeSeriesData.filter(d => d.Forecast && d.Forecast > 0);
+      
+      console.log('📊 Actual data points:', actualData.length, 'Sample:', actualData[0]);
+      console.log('📈 Forecasted data points:', forecastedData.length, 'Sample:', forecastedData[0]);
+
       workflow['currentState'].forecastResults = {
-        forecastPoints: timeSeriesData.filter(d => d.Forecast && d.Forecast > 0).map(d => ({
+        forecastPoints: forecastedData.map(d => ({
           date: new Date(d.Date),
           forecast: d.Forecast,
           is_future: true
@@ -76,6 +89,7 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       };
       workflow['currentState'].processedData = timeSeriesData;
 
+      console.log('🚀 Starting capacity planning calculation...');
       const results = await workflow.executeCapacityPlanningStep(
         localAssumptions,
         {
@@ -84,13 +98,15 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
         }
       );
 
+      console.log('✅ Capacity planning results:', results);
+
       dispatch({
         type: 'UPDATE_CAPACITY_RESULTS',
         payload: results
       });
 
     } catch (error) {
-      console.error('Capacity planning calculation failed:', error);
+      console.error('❌ Capacity planning calculation failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       dispatch({
         type: 'SET_CAPACITY_ERRORS',
