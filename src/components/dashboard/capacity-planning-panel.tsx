@@ -146,18 +146,6 @@ export function CapacityPlanningPanel() {
     return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   };
 
-  // Prepare chart data
-  const chartData = state.capacityPlanning.results.weeklyHC.map(week => ({
-    week: formatDate(week.week),
-    weekRaw: week.week,
-    requiredHC: week.requiredHC,
-    volume: week.volume,
-    dataType: week.dataType
-  }));
-
-  // Find the split point between historical and forecasted
-  const splitIndex = chartData.findIndex(d => d.dataType === 'forecasted');
-
   return (
     <Card>
       <CardHeader>
@@ -441,7 +429,13 @@ export function CapacityPlanningPanel() {
             <div className="border rounded-lg p-4">
               <h4 className="font-semibold mb-4">Required HC Over Time</h4>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
+                <LineChart data={state.capacityPlanning.results.weeklyHC.map(week => ({
+                  week: formatDate(week.week),
+                  weekRaw: week.week,
+                  requiredHC: week.requiredHC,
+                  volume: week.volume,
+                  dataType: week.dataType
+                }))}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="week"
@@ -479,9 +473,9 @@ export function CapacityPlanningPanel() {
                     }}
                   />
                   <Legend />
-                  {splitIndex > 0 && (
+                  {state.capacityPlanning.results.weeklyHC.findIndex(d => d.dataType === 'forecasted') > 0 && (
                     <ReferenceLine
-                      x={chartData[splitIndex]?.week}
+                      x={state.capacityPlanning.results.weeklyHC.find(d => d.dataType === 'forecasted')?.week}
                       stroke="#666"
                       strokeDasharray="3 3"
                       label={{ value: 'Forecast Start', position: 'top' }}
