@@ -138,6 +138,7 @@ export type ChatMessage = {
   canGenerateReport?: boolean;
   reportData?: any;
   showCapacityPlanning?: boolean;
+  showAssumptionsPreview?: boolean;
   tokenUsage?: {
     promptTokens: number;
     completionTokens: number;
