@@ -1,5 +1,3 @@
-'use client';
-
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -26,6 +24,7 @@ import { agentResponseGenerator } from '@/lib/agent-response-generator';
 import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
 import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 import ModelTrainingForm, { type ModelTrainingConfig } from './model-training-form';
+import { InlineCapacityPlanning } from './inline-capacity-planning';
 
 const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
 
@@ -310,7 +309,7 @@ WHAT TO DO:
 ✅ "Best hyperparameters: learning_rate=0.1, max_depth=6"
 
 WHAT NOT TO DO:
-❌ Don't re-explain data patterns (EDA did this)
+❌ Don't repeat training metrics (Validation did this)
 ❌ Don't describe cleaning steps (Preprocessing did this)
 ❌ Don't explain what MAPE means
 ❌ Don't give generic ML advice
@@ -880,7 +879,9 @@ class EnhancedMultiAgentChatHandler {
               businessInsights: []
             };
 
-            if (!aggregatedInsights[agentKey]) aggregatedInsights[agentKey] = {};
+            if (!aggregatedInsights[agentKey]) {
+              aggregatedInsights[agentKey] = {};
+            }
             aggregatedInsights[agentKey] = {
               ...aggregatedInsights[agentKey],
               agentName: agent.name,
@@ -891,7 +892,9 @@ class EnhancedMultiAgentChatHandler {
             };
 
             // Ensure finalReportData for single-agent flows
-            if (agents.length === 1) finalReportData = reportData;
+            if (agents.length === 1) {
+              finalReportData = reportData;
+            }
 
             this.dispatch({ type: 'ADD_THINKING_STEP', payload: '📊 Deterministic EDA summary generated' });
           } catch (e) {
@@ -1168,7 +1171,7 @@ class EnhancedMultiAgentChatHandler {
       // Log for debugging
       console.log('Visualization data prepared:', {
         totalPoints: lobToUse.timeSeriesData.length,
-        forecastPoints: lobToUse.timeSeriesData.filter((d: any) => d.Forecast && d.Forecast > 0).length,
+        forecastPoints: lobToUse.timeSeriesData.filter((d: any) => d.Forecast !== undefined && d.Forecast > 0).length,
         hasForecast,
         hasOutliers,
         agents: agents
@@ -1407,7 +1410,7 @@ function EnhancedChatBubble({
         if (modelLines.length > 1) {
           const testedModels = lines.filter(l => /^•\s*\*\*\w+\*\*:/.test(l.trim()));
           const modelNames = testedModels.map(l => l.match(/\*\*(\w+)\*\*/)?.[1]).filter(Boolean);
-          const bestModel = bestModelLine?.match(/Selected Model:\s*\*\*(\w+)\*\*/)?.[1] ||
+          const bestModel = bestModelLine?.match(/Best Performer:\s*\*\*(\w+)\*\*/)?.[1] ||
             lines.find(l => /Best Performer/.test(l))?.match(/\*\*(\w+)\*\*/)?.[1];
 
           if (modelNames.length > 0 && bestModel) {
@@ -1724,6 +1727,13 @@ function EnhancedChatBubble({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Inline Capacity Planning Component */}
+          {(message as any).showCapacityPlanning && (
+            <div className="mt-3">
+              <InlineCapacityPlanning messageId={message.id} />
             </div>
           )}
 
@@ -2337,6 +2347,45 @@ Provide a specific, actionable response based on the actual data and forecast re
       return;
     }
 
+    // Check for capacity planning requests
+    const capacityPlanningKeywords = /calculate\s+(required\s+)?(head\s?count|hc|capacity)|plan\s+capacity|capacity\s+planning|workforce\s+planning|staffing\s+needs/i;
+    if (capacityPlanningKeywords.test(messageText)) {
+      // Check if capacity planning is enabled
+      if (!state.capacityPlanning.enabled) {
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `📊 **Capacity Planning Request**\n\nI can help you calculate required headcount based on your forecast! However, capacity planning requires forecasted data first.\n\n**Current Status:**\n• Forecasting: ${state.analyzedData.hasForecasting ? '✅ Complete' : '❌ Not completed'}\n• Capacity Planning: ${state.capacityPlanning.enabled ? '✅ Ready' : '⏳ Waiting for forecast'}\n\n**Next Steps:**\n${state.analyzedData.hasForecasting ? '• Scroll down to the **"📊 Step 7: Capacity Planning"** section below\n• Review the default assumptions or customize them\n• Click **"Calculate Required HC"** to get your staffing needs' : '• First, run a forecast analysis to predict future volumes\n• Then capacity planning will unlock automatically'}`,
+            suggestions: state.analyzedData.hasForecasting 
+              ? ['Show me the capacity planning section', 'What assumptions can I configure?', 'Explain the HC formula']
+              : ['Run forecast analysis', 'Generate predictions', 'Help me get started'],
+            agentType: 'onboarding'
+          }
+        });
+        return;
+      }
+
+      // Capacity planning is enabled - show inline component
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `📊 **Capacity Planning Ready!**\n\nYour forecast is complete! Use the interactive capacity planning tool below to calculate required headcount.\n\n**What you can do:**\n• Review and customize the pre-configured assumptions\n• Adjust parameters like AHT, Occupancy, Backlog, etc.\n• Calculate required HC based on your forecasted volumes\n• Export results as CSV for further analysis\n\n**Date Range:** ${state.capacityPlanning.dateRange.startDate ? new Date(state.capacityPlanning.dateRange.startDate).toLocaleDateString() : 'Auto-populated'} - ${state.capacityPlanning.dateRange.endDate ? new Date(state.capacityPlanning.dateRange.endDate).toLocaleDateString() : 'Auto-populated'}`,
+          suggestions: [
+            'Explain the HC formula',
+            'What assumptions should I customize?',
+            'Show example calculation'
+          ],
+          showCapacityPlanning: true,
+          agentType: 'onboarding'
+        }
+      });
+      return;
+    }
+
     // First, check for chat commands (BU/LOB creation, data upload)
     const chatCommand = chatCommandProcessor.parseCommand(messageText, 'default');
 
@@ -2414,7 +2463,6 @@ Would you like to customize these parameters, or should I use smart defaults?`,
     await continueWithAnalysis(messageText);
   };
 
-  // Rest of the component remains similar with enhanced UI elements
   const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -2668,12 +2716,12 @@ Would you like to customize these parameters, or should I use smart defaults?`,
             stepResults: workflowResult.stepByStepResults
           },
           suggestions: [
-            'Visualize actual vs forecast',
-            'Export forecast results',
+            'Calculate required headcount',
+            'Plan capacity needs',
             'Generate business insights',
             'Analyze forecast confidence',
-            'Compare with historical trends',
-            'Run scenario analysis'
+            'Visualize actual vs forecast',
+            'Export forecast results'
           ]
         }
       });
@@ -2881,7 +2929,7 @@ Would you like to try again with different settings?`,
       if (isAPIKeyError) {
         suggestions = [
           'Open API Settings',
-          'Configure OpenAI Key',
+          'Configure OpenAI API key',
           'Test API Connection'
         ];
       }
@@ -2906,7 +2954,7 @@ Would you like to try again with different settings?`,
       setShowAPISettings(true);
       return;
     }
-    if (suggestion === 'Configure OpenAI Key' || suggestion === 'Open API Settings') {
+    if (suggestion === 'Configure OpenAI API key' || suggestion === 'Open API Settings') {
       setShowAPISettings(true);
       return;
     }
@@ -3053,7 +3101,7 @@ Ready to customize, or should I proceed with intelligent defaults?`,
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="mr-1.5"
+                        className="mr-1"
                       >
                         <path d="M12 5v14M19 12l-7 7-7-7" />
                       </svg>

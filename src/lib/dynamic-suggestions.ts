@@ -12,6 +12,7 @@ export interface UserActivity {
   hasTrainedModels: boolean;
   hasGeneratedForecast: boolean;
   hasViewedInsights: boolean;
+  hasCalculatedCapacity?: boolean;
   lastAction: string;
   dataQuality?: number;
   recordCount?: number;
@@ -53,6 +54,13 @@ export class DynamicSuggestionGenerator {
     // If forecast is complete, suggest post-forecast actions
     if (userActivity.hasGeneratedForecast) {
       const suggestions: string[] = [];
+      
+      // Suggest capacity planning first (if not already done)
+      if (!userActivity.hasCalculatedCapacity) {
+        suggestions.push('Calculate required headcount');
+        suggestions.push('Plan capacity needs');
+      }
+      
       if (!userActivity.hasViewedInsights) {
         suggestions.push('Generate business insights');
       }
@@ -225,6 +233,10 @@ export class DynamicSuggestionGenerator {
 
       case 'forecasting':
         // After forecasting, suggest insights/export (NOT forecasting again)
+        if (!activity.hasCalculatedCapacity) {
+          suggestions.push('Calculate required headcount');
+          suggestions.push('Plan capacity with forecasted volumes');
+        }
         if (!activity.hasViewedInsights) {
           suggestions.push('Generate business insights');
         }

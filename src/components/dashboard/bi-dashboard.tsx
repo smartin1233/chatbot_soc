@@ -43,6 +43,16 @@ export default function BIDashboard() {
     }
   }, [state.selectedLob?.forecastMetrics]);
 
+  // Debug: Log capacity planning state
+  React.useEffect(() => {
+    console.log('🔍 BIDashboard: Capacity Planning State:', {
+      enabled: state.capacityPlanning.enabled,
+      status: state.capacityPlanning.status,
+      hasDateRange: !!(state.capacityPlanning.dateRange.startDate && state.capacityPlanning.dateRange.endDate),
+      dateRange: state.capacityPlanning.dateRange
+    });
+  }, [state.capacityPlanning]);
+
   // Generate dynamic dashboard configuration based on conversation context
   const dashboardConfig = useMemo(() => {
     const config = dynamicInsightsAnalyzer.generateDynamicDashboard(

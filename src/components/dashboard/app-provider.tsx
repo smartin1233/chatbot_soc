@@ -557,10 +557,60 @@ function appReducer(state: AppState, action: Action): AppState {
       
       console.log('✅ Updated selectedLob with forecast metrics:', updatedSelectedLob?.forecastMetrics);
       
+      // Auto-enable capacity planning if forecast successful
+      const forecastData = action.payload.forecastData;
+      const hasForecastData = forecastData && forecastData.length > 0;
+      
+      let capacityPlanningUpdate = state.capacityPlanning;
+      
+      if (hasForecastData) {
+        console.log('🔓 Auto-enabling capacity planning after forecast...');
+        
+        // Calculate auto-populated date range
+        const historicalData = forecastData.filter(d => !d.Forecast || d.Forecast === 0);
+        const forecastedData = forecastData.filter(d => d.Forecast && d.Forecast > 0);
+        
+        let startDate: string | null = null;
+        let endDate: string | null = null;
+        
+        if (historicalData.length > 0) {
+          // Get last 5 weeks of historical data
+          const sortedHistorical = [...historicalData].sort((a, b) => 
+            new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          const lastHistoricalIndex = sortedHistorical.length - 1;
+          const startIndex = Math.max(0, lastHistoricalIndex - 4); // Last 5 weeks (index 0-based)
+          startDate = new Date(sortedHistorical[startIndex].Date).toISOString().split('T')[0];
+          console.log('📅 Capacity planning start date (last 5 historical):', startDate);
+        }
+        
+        if (forecastedData.length > 0) {
+          // Get last forecasted week
+          const sortedForecast = [...forecastedData].sort((a, b) => 
+            new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          endDate = new Date(sortedForecast[sortedForecast.length - 1].Date).toISOString().split('T')[0];
+          console.log('📅 Capacity planning end date (last forecast):', endDate);
+        }
+        
+        capacityPlanningUpdate = {
+          ...state.capacityPlanning,
+          enabled: true,
+          dateRange: {
+            startDate,
+            endDate,
+            autoPopulated: true
+          }
+        };
+        
+        console.log('✅ Capacity planning enabled:', capacityPlanningUpdate);
+      }
+      
       return {
         ...state,
         businessUnits: updatedBusinessUnits,
-        selectedLob: updatedSelectedLob
+        selectedLob: updatedSelectedLob,
+        capacityPlanning: capacityPlanningUpdate
       };
     }
     case 'UPDATE_LOB_WITH_FORECAST_DATA': {
