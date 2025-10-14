@@ -207,40 +207,66 @@ export function calculateWeeklyHC(
   // Process historical weeks
   for (const week of historicalWeeks) {
     const dataPoint = historicalDateMap.get(week);
-    if (!dataPoint) continue;
+    if (!dataPoint) {
+      console.log(`⚠️ No data found for historical week: ${week}`);
+      continue;
+    }
 
-    // Extract volume - try different property names
-    const volume = dataPoint.Units || dataPoint.volume || dataPoint.value || 0;
+    // Extract volume - try different property names (case-sensitive)
+    const volume = dataPoint.Units || dataPoint.Value || dataPoint.volume || dataPoint.value || 0;
+    
+    console.log(`📊 Historical week ${week}:`, {
+      dataPoint,
+      extractedVolume: volume,
+      availableProperties: Object.keys(dataPoint)
+    });
 
     if (volume > 0) {
       const requiredHC = calculateHCForWeek(volume, assumptions);
+      console.log(`✅ Calculated HC for ${week}: volume=${volume}, HC=${requiredHC}`);
       results.push({
         week,
         volume,
         requiredHC,
         dataType: 'actual'
       });
+    } else {
+      console.log(`⚠️ Zero volume for historical week ${week}`);
     }
   }
 
   // Process forecasted weeks
   for (const week of forecastedWeeks) {
     const dataPoint = forecastDateMap.get(week);
-    if (!dataPoint) continue;
+    if (!dataPoint) {
+      console.log(`⚠️ No data found for forecasted week: ${week}`);
+      continue;
+    }
 
     // Extract volume - forecast data might have different property names
-    const volume = dataPoint.Forecast || dataPoint.forecast || dataPoint.predicted || dataPoint.Units || 0;
+    const volume = dataPoint.Forecast || dataPoint.forecast || dataPoint.predicted || dataPoint.Units || dataPoint.Value || 0;
+    
+    console.log(`📈 Forecasted week ${week}:`, {
+      dataPoint,
+      extractedVolume: volume,
+      availableProperties: Object.keys(dataPoint)
+    });
 
     if (volume > 0) {
       const requiredHC = calculateHCForWeek(volume, assumptions);
+      console.log(`✅ Calculated HC for ${week}: volume=${volume}, HC=${requiredHC}`);
       results.push({
         week,
         volume,
         requiredHC,
         dataType: 'forecasted'
       });
+    } else {
+      console.log(`⚠️ Zero volume for forecasted week ${week}`);
     }
   }
+
+  console.log(`📊 Total HC results calculated: ${results.length} weeks`);
 
   // Sort results by week (ascending)
   results.sort((a, b) => new Date(a.week).getTime() - new Date(b.week).getTime());
