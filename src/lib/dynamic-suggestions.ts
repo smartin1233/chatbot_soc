@@ -53,6 +53,13 @@ export class DynamicSuggestionGenerator {
     // If forecast is complete, suggest post-forecast actions
     if (userActivity.hasGeneratedForecast) {
       const suggestions: string[] = [];
+      
+      // Suggest capacity planning first (if not already done)
+      if (!userActivity.hasCalculatedCapacity) {
+        suggestions.push('Calculate required headcount');
+        suggestions.push('Plan capacity needs');
+      }
+      
       if (!userActivity.hasViewedInsights) {
         suggestions.push('Generate business insights');
       }
