@@ -1730,6 +1730,13 @@ function EnhancedChatBubble({
             </div>
           )}
 
+          {/* Inline Capacity Planning Component */}
+          {(message as any).showCapacityPlanning && (
+            <div className="mt-3">
+              <InlineCapacityPlanning messageId={message.id} />
+            </div>
+          )}
+
           {/* Suggestions */}
           {message.suggestions && message.suggestions.length > 0 && (
             <div className="bg-muted/20 rounded-lg p-3">
@@ -2456,7 +2463,6 @@ Would you like to customize these parameters, or should I use smart defaults?`,
     await continueWithAnalysis(messageText);
   };
 
-  // Rest of the component remains similar with enhanced UI elements
   const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -2923,7 +2929,7 @@ Would you like to try again with different settings?`,
       if (isAPIKeyError) {
         suggestions = [
           'Open API Settings',
-          'Configure OpenAI Key',
+          'Configure OpenAI API key',
           'Test API Connection'
         ];
       }
@@ -2948,7 +2954,7 @@ Would you like to try again with different settings?`,
       setShowAPISettings(true);
       return;
     }
-    if (suggestion === 'Configure OpenAI Key' || suggestion === 'Open API Settings') {
+    if (suggestion === 'Configure OpenAI API key' || suggestion === 'Open API Settings') {
       setShowAPISettings(true);
       return;
     }
