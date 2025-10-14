@@ -56,6 +56,26 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
     });
   };
 
+  // Handle date range change
+  const handleDateRangeChange = (field: 'startDate' | 'endDate', value: string) => {
+    setCustomDateRange(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    // Update global state
+    if (field === 'startDate' && customDateRange.endDate) {
+      dispatch({
+        type: 'SET_CAPACITY_DATE_RANGE',
+        payload: { startDate: value, endDate: customDateRange.endDate }
+      });
+    } else if (field === 'endDate' && customDateRange.startDate) {
+      dispatch({
+        type: 'SET_CAPACITY_DATE_RANGE',
+        payload: { startDate: customDateRange.startDate, endDate: value }
+      });
+    }
+  };
+
   // Calculate HC
   const handleCalculate = async () => {
     try {
@@ -99,8 +119,8 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       const results = await workflow.executeCapacityPlanningStep(
         localAssumptions,
         {
-          startDate: state.capacityPlanning.dateRange.startDate,
-          endDate: state.capacityPlanning.dateRange.endDate
+          startDate: customDateRange.startDate,
+          endDate: customDateRange.endDate
         }
       );
 
@@ -247,8 +267,8 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
         <div className="text-sm">
           <span className="font-semibold">Date Range: </span>
           <span className="text-muted-foreground">
-            {state.capacityPlanning.dateRange.startDate && state.capacityPlanning.dateRange.endDate ? (
-              `${formatDate(state.capacityPlanning.dateRange.startDate)} - ${formatDate(state.capacityPlanning.dateRange.endDate)}`
+            {customDateRange.startDate && customDateRange.endDate ? (
+              `${formatDate(customDateRange.startDate)} - ${formatDate(customDateRange.endDate)}`
             ) : (
               'Auto-populated'
             )}
