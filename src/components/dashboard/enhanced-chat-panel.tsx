@@ -2367,19 +2367,22 @@ Provide a specific, actionable response based on the actual data and forecast re
         return;
       }
 
-      // Capacity planning is enabled - show inline component
+      // Capacity planning is enabled - show assumptions preview for confirmation
+      const actualCount = state.selectedLob?.timeSeriesData?.filter(d => !d.Forecast || d.Forecast === 0).length || 0;
+      const forecastCount = state.selectedLob?.timeSeriesData?.filter(d => d.Forecast && d.Forecast > 0).length || 0;
+      
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `📊 **Capacity Planning Ready!**\n\nYour forecast is complete! Use the interactive capacity planning tool below to calculate required headcount.\n\n**What you can do:**\n• Review and customize the pre-configured assumptions\n• Adjust parameters like AHT, Occupancy, Backlog, etc.\n• Calculate required HC based on your forecasted volumes\n• Export results as CSV for further analysis\n\n**Date Range:** ${state.capacityPlanning.dateRange.startDate ? new Date(state.capacityPlanning.dateRange.startDate).toLocaleDateString() : 'Auto-populated'} - ${state.capacityPlanning.dateRange.endDate ? new Date(state.capacityPlanning.dateRange.endDate).toLocaleDateString() : 'Auto-populated'}`,
+          content: `📊 **Capacity Planning Analysis**\n\nGreat! I'll help you calculate the required headcount based on your data.\n\n**Here's my plan:**\n1. I'll use your **${actualCount} weeks of actual data** and **${forecastCount} weeks of forecasted data**\n2. Apply the following assumptions to calculate required HC:\n   • **AHT (Average Handle Time):** ${state.capacityPlanning.assumptions.aht} seconds\n   • **Occupancy:** ${state.capacityPlanning.assumptions.occupancy}%\n   • **Backlog:** ${state.capacityPlanning.assumptions.backlog}%\n   • **Volume Mix:** ${state.capacityPlanning.assumptions.volumeMix}%\n   • **In-Office Shrinkage:** ${state.capacityPlanning.assumptions.inOfficeShrinkage}%\n   • **Out-of-Office Shrinkage:** ${state.capacityPlanning.assumptions.outOfOfficeShrinkage}%\n   • **Attrition:** ${state.capacityPlanning.assumptions.attrition}%\n3. Calculate weekly HC requirements using the formula:\n   **HC = (Volume × VolumeMix% × AHT) / (60 × Occupancy% × (1 - InShrinkage%) × (1 - OutShrinkage%)) × (1 + Backlog%) / 40**\n\n**Review the assumptions below and click "Confirm & Calculate HC" to proceed, or modify any values before confirming.**`,
           suggestions: [
             'Explain the HC formula',
-            'What assumptions should I customize?',
-            'Show example calculation'
+            'What do these assumptions mean?',
+            'How is date range determined?'
           ],
-          showCapacityPlanning: true,
+          showAssumptionsPreview: true,
           agentType: 'onboarding'
         }
       });
