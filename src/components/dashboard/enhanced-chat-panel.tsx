@@ -208,7 +208,7 @@ RESPONSE FORMAT:
 }
 [/REPORT_DATA]
 
-Then provide detailed analysis in bullet-point format.
+Then provide detailed analysis in bullet-point format for easy scanning.
 
 REMEMBER: Be SPECIFIC with values, dates, and recommendations!`
   },
