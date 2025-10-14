@@ -88,10 +88,10 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       console.log('📊 Total data points:', timeSeriesData.length);
       console.log('📊 Sample data point:', timeSeriesData[0]);
       console.log('📊 Data properties:', timeSeriesData[0] ? Object.keys(timeSeriesData[0]) : 'No data');
-      console.log('📅 Date range:', state.capacityPlanning.dateRange);
+      console.log('📅 Date range:', customDateRange);
 
-      if (!state.capacityPlanning.dateRange.startDate || !state.capacityPlanning.dateRange.endDate) {
-        throw new Error('Date range not available. Please run forecasting first.');
+      if (!customDateRange.startDate || !customDateRange.endDate) {
+        throw new Error('Please select both start and end dates.');
       }
 
       const workflow = new SequentialAgentWorkflow(
