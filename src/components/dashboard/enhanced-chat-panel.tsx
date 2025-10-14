@@ -164,13 +164,12 @@ DETAILED OUTLIER REPORT FORMAT:
 "**Outliers Detected**
 • Count: 8 outliers (4.3% of data)
 • Method: IQR method (Q1-1.5×IQR, Q3+1.5×IQR)
-• Threshold: Values < 1,245 or > 4,392
+• Threshold: Values < 1,245 or > 4,392"
 
 **Specific Outliers**
 • Index 45 (May 15, 2024): Value 4,850 (10% above threshold)
 • Index 67 (June 8, 2024): Value 4,920 (12% above threshold)
 • Index 89 (July 2, 2024): Value 1,100 (12% below threshold)
-[List all or top 5 if many]
 
 **Impact Assessment**
 • Severity: Moderate - outliers are 10-15% beyond normal range
@@ -181,7 +180,7 @@ DETAILED OUTLIER REPORT FORMAT:
 • Option 1: Cap outliers at 95th percentile (3,892) - preserves data
 • Option 2: Remove outliers - reduces noise but loses information
 • Option 3: Keep outliers - use robust models (XGBoost, Random Forest)
-• Suggested: Option 1 for balanced approach"
+• Suggested: Option 1 for balanced approach`
 
 WHAT TO DO:
 ✅ List EVERY outlier with specific values and dates
@@ -243,7 +242,7 @@ WHAT TO DO:
 "**Preprocessing Steps**
 • Outliers: Capped 8 outliers at 95th percentile (3,892) using IQR method
 • Missing Values: None detected, no imputation needed
-• Normalization: Standardized all features for consistent scale
+• Normalization: Standardized all features for consistent scale"
 
 **Feature Engineering**
 • Lag Features: Created lag-1, lag-7, lag-14 for temporal dependencies
@@ -810,15 +809,7 @@ class EnhancedMultiAgentChatHandler {
           cleanedResponse = cleanedResponse.trim();
 
           // Extract one-line summary (first meaningful sentence)
-          const lines = cleanedResponse.split('\n').filter(line => {
-            const trimmed = line.trim();
-            return trimmed &&
-              !trimmed.includes('##') &&
-              !trimmed.includes('[REPORT_DATA]') &&
-              !trimmed.includes('"title"') &&
-              !trimmed.startsWith('{') &&
-              !trimmed.startsWith('}');
-          });
+          const lines = cleanedResponse.split('\n').filter(l => l.trim() && !l.startsWith('#'));
           const oneLiner = lines[0] || `Completed ${agent.specialty}`;
 
           // Initialize or update aggregatedInsights for this agent
@@ -2949,6 +2940,72 @@ Would you like to try again with different settings?`,
         }
       });
       dispatch({ type: 'SET_PROCESSING', payload: false });
+    }
+  };
+
+  const handleAssumptionsConfirm = async (assumptions: any, dateRange: { startDate: string; endDate: string }) => {
+    try {
+      // Update state with confirmed assumptions and date range
+      dispatch({ type: 'SET_CAPACITY_ASSUMPTIONS', payload: assumptions });
+      dispatch({ type: 'SET_CAPACITY_DATE_RANGE', payload: dateRange });
+
+      // Show loading message
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '⏳ Calculating required headcount based on your assumptions...\n\nProcessing your data and applying the capacity planning formula...',
+          isTyping: true,
+          agentType: 'onboarding'
+        }
+      });
+
+      // Get the data for calculation
+      const historicalData = state.selectedLob?.timeSeriesData?.filter(d => !d.Forecast || d.Forecast === 0) || [];
+      const forecastData = state.selectedLob?.timeSeriesData?.filter(d => d.Forecast && d.Forecast > 0) || [];
+
+      // Create workflow instance
+      const sequentialWorkflow = new SequentialAgentWorkflow(state, state.selectedLob?.timeSeriesData || []);
+
+      // Execute capacity planning calculation
+      const results = await sequentialWorkflow.executeCapacityPlanningStep(assumptions, dateRange);
+
+      // Update state with results
+      dispatch({ type: 'UPDATE_CAPACITY_RESULTS', payload: results });
+
+      // Update user activity to track capacity planning completion
+      dispatch({
+        type: 'TRACK_ACTIVITY',
+        payload: { hasCalculatedCapacity: true }
+      });
+
+      // Remove loading message and add results message
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: `✅ **Capacity Planning Complete!**\n\nI've calculated the required headcount for ${results.weeklyHC.length} weeks based on your assumptions.\n\n**Summary:**\n• Total Required HC: ${results.summary?.totalHC || 0}\n• Average Weekly HC: ${results.summary?.avgHC || 0}\n• Peak HC: ${results.summary?.maxHC || 0} (Week ${results.summary?.maxWeek || 'N/A'})\n• Minimum HC: ${results.summary?.minHC || 0} (Week ${results.summary?.minWeek || 'N/A'})\n\nView the detailed breakdown below:`,
+          isTyping: false,
+          showCapacityPlanning: true,
+          suggestions: [
+            'Export results to CSV',
+            'Modify assumptions',
+            'Explain the calculation'
+          ],
+          agentType: 'onboarding'
+        }
+      });
+    } catch (error) {
+      console.error('Capacity planning error:', error);
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: `❌ **Error Calculating Headcount**\n\n${error instanceof Error ? error.message : 'An unexpected error occurred during calculation.'}\n\nPlease check your assumptions and date range, then try again.`,
+          isTyping: false,
+          suggestions: ['Review assumptions', 'Check date range', 'Try again'],
+          agentType: 'onboarding'
+        }
+      });
     }
   };
 
