@@ -320,6 +320,27 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
               </Button>
             </div>
 
+            {/* Data Type Notation */}
+            <div className="flex items-center gap-4 text-sm p-3 bg-muted/30 rounded-lg">
+              <div className="font-semibold">Data Breakdown:</div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-green-50 text-green-700 border-green-300">
+                  Actual
+                </Badge>
+                <span className="text-muted-foreground">
+                  {state.capacityPlanning.results.weeklyHC.filter(w => w.dataType === 'actual').length} weeks
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-blue-50 text-blue-700 border-blue-300">
+                  Forecasted
+                </Badge>
+                <span className="text-muted-foreground">
+                  {state.capacityPlanning.results.weeklyHC.filter(w => w.dataType === 'forecasted').length} weeks
+                </span>
+              </div>
+            </div>
+
             {/* Summary Statistics - Compact Grid */}
             <div className="grid grid-cols-3 gap-2 p-3 bg-muted/30 rounded-lg">
               <div>
