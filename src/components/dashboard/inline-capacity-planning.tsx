@@ -14,6 +14,33 @@ interface InlineCapacityPlanningProps {
   messageId: string;
 }
 
+// Helper function to convert week format to ISO date
+const weekToISODate = (weekString: string): string => {
+  if (!weekString || !weekString.includes('-W')) {
+    return weekString; // Already in ISO format
+  }
+  // Format: YYYY-Www
+  const [year, week] = weekString.split('-W');
+  const date = new Date(parseInt(year), 0, 1);
+  const dayOfWeek = date.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  date.setDate(date.getDate() + daysToMonday + (parseInt(week) - 1) * 7);
+  return date.toISOString().split('T')[0];
+};
+
+// Helper function to convert ISO date to week format for input
+const isoDateToWeek = (isoDate: string): string => {
+  if (!isoDate) return '';
+  const date = new Date(isoDate);
+  const year = date.getFullYear();
+  const firstDayOfYear = new Date(year, 0, 1);
+  const dayOfWeek = firstDayOfYear.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const firstMonday = new Date(year, 0, 1 + daysToMonday);
+  const weekNumber = Math.ceil(((date.getTime() - firstMonday.getTime()) / 86400000 + 1) / 7);
+  return `${year}-W${String(weekNumber).padStart(2, '0')}`;
+};
+
 export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProps) {
   const { state, dispatch } = useApp();
   const [localAssumptions, setLocalAssumptions] = useState(state.capacityPlanning.assumptions);
@@ -21,37 +48,24 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
   const [currentPage, setCurrentPage] = useState(1);
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const [customDateRange, setCustomDateRange] = useState({
-    startDate: isoDateToWeek(state.capacityPlanning.dateRange.startDate || ''),
-    endDate: isoDateToWeek(state.capacityPlanning.dateRange.endDate || '')
+    startDate: state.capacityPlanning.dateRange.startDate 
+      ? isoDateToWeek(state.capacityPlanning.dateRange.startDate)
+      : '',
+    endDate: state.capacityPlanning.dateRange.endDate
+      ? isoDateToWeek(state.capacityPlanning.dateRange.endDate)
+      : ''
   });
   const resultsPerPage = 10;
 
-  // Helper function to convert week format to ISO date
-  const weekToISODate = (weekString: string): string => {
-    if (!weekString || !weekString.includes('-W')) {
-      return weekString; // Already in ISO format
+  // Update customDateRange when state changes
+  useEffect(() => {
+    if (state.capacityPlanning.dateRange.startDate && state.capacityPlanning.dateRange.endDate) {
+      setCustomDateRange({
+        startDate: isoDateToWeek(state.capacityPlanning.dateRange.startDate),
+        endDate: isoDateToWeek(state.capacityPlanning.dateRange.endDate)
+      });
     }
-    // Format: YYYY-Www
-    const [year, week] = weekString.split('-W');
-    const date = new Date(parseInt(year), 0, 1);
-    const dayOfWeek = date.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-    date.setDate(date.getDate() + daysToMonday + (parseInt(week) - 1) * 7);
-    return date.toISOString().split('T')[0];
-  };
-
-  // Helper function to convert ISO date to week format for input
-  const isoDateToWeek = (isoDate: string): string => {
-    if (!isoDate) return '';
-    const date = new Date(isoDate);
-    const year = date.getFullYear();
-    const firstDayOfYear = new Date(year, 0, 1);
-    const dayOfWeek = firstDayOfYear.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-    const firstMonday = new Date(year, 0, 1 + daysToMonday);
-    const weekNumber = Math.ceil(((date.getTime() - firstMonday.getTime()) / 86400000 + 1) / 7);
-    return `${year}-W${String(weekNumber).padStart(2, '0')}`;
-  };
+  }, [state.capacityPlanning.dateRange.startDate, state.capacityPlanning.dateRange.endDate]);
 
   // Check if capacity planning is enabled
   if (!state.capacityPlanning.enabled) {
@@ -65,24 +79,6 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       </Card>
     );
   }
-
-  // Initialize date range in week format from state
-  const initialStartWeek = state.capacityPlanning.dateRange.startDate 
-    ? isoDateToWeek(state.capacityPlanning.dateRange.startDate)
-    : '';
-  const initialEndWeek = state.capacityPlanning.dateRange.endDate
-    ? isoDateToWeek(state.capacityPlanning.dateRange.endDate)
-    : '';
-
-  // Update customDateRange if state changes
-  useEffect(() => {
-    if (state.capacityPlanning.dateRange.startDate && state.capacityPlanning.dateRange.endDate) {
-      setCustomDateRange({
-        startDate: isoDateToWeek(state.capacityPlanning.dateRange.startDate),
-        endDate: isoDateToWeek(state.capacityPlanning.dateRange.endDate)
-      });
-    }
-  }, [state.capacityPlanning.dateRange.startDate, state.capacityPlanning.dateRange.endDate]);
 
   // Handle assumption change
   const handleAssumptionChange = (field: keyof typeof localAssumptions, value: string) => {
