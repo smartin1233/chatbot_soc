@@ -137,6 +137,7 @@ export type ChatMessage = {
   agentType?: string;
   canGenerateReport?: boolean;
   reportData?: any;
+  showCapacityPlanning?: boolean;
   tokenUsage?: {
     promptTokens: number;
     completionTokens: number;
