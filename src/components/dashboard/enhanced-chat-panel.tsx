@@ -1729,6 +1729,13 @@ function EnhancedChatBubble({
             </div>
           )}
 
+          {/* Assumptions Preview Component */}
+          {(message as any).showAssumptionsPreview && (
+            <div className="mt-3">
+              <AssumptionsPreview onConfirm={handleAssumptionsConfirm} />
+            </div>
+          )}
+
           {/* Suggestions */}
           {message.suggestions && message.suggestions.length > 0 && (
             <div className="bg-muted/20 rounded-lg p-3">
