@@ -28,6 +28,7 @@ type AppState = {
     hasForecasting: boolean;
     hasInsights: boolean;
     hasPreprocessing: boolean;
+    hasCapacityPlanning: boolean;
     lastAnalysisDate: Date | null;
     lastAnalysisType: 'eda' | 'forecasting' | 'comparative' | 'whatif' | null;
     outliers: OutlierData[];
@@ -40,6 +41,41 @@ type AppState = {
     rmse?: number;
     mae?: number;
     [key: string]: any;
+  };
+  capacityPlanning: {
+    enabled: boolean;
+    status: 'idle' | 'calculating' | 'completed' | 'error';
+    assumptions: {
+      aht: number;
+      occupancy: number;
+      backlog: number;
+      attrition: number;
+      volumeMix: number;
+      inOfficeShrinkage: number;
+      outOfOfficeShrinkage: number;
+    };
+    dateRange: {
+      startDate: string | null;
+      endDate: string | null;
+      autoPopulated: boolean;
+    };
+    results: {
+      weeklyHC: Array<{
+        week: string;
+        volume: number;
+        requiredHC: number;
+        dataType: 'actual' | 'forecasted';
+      }>;
+      summary: {
+        totalHC: number;
+        avgHC: number;
+        minHC: { value: number; week: string };
+        maxHC: { value: number; week: string };
+        historicalAvg: number;
+        forecastedAvg: number;
+      } | null;
+    };
+    errors: string[];
   };
   conversationContext: {
     topics: string[]; // for example, ['data_exploration', 'forecasting', 'modeling']
@@ -56,6 +92,7 @@ type AppState = {
     hasTrainedModels: boolean;
     hasGeneratedForecast: boolean;
     hasViewedInsights: boolean;
+    hasCalculatedCapacity: boolean;
     lastAction: string;
     lastAgentType?: string;
   };
@@ -106,7 +143,13 @@ type Action =
       userIntent?: string;
     }
   }
-  | { type: 'SET_BUSINESS_UNITS'; payload: BusinessUnit[] };
+  | { type: 'SET_BUSINESS_UNITS'; payload: BusinessUnit[] }
+  | { type: 'SET_CAPACITY_ASSUMPTIONS'; payload: AppState['capacityPlanning']['assumptions'] }
+  | { type: 'SET_CAPACITY_DATE_RANGE'; payload: { startDate: string; endDate: string } }
+  | { type: 'UPDATE_CAPACITY_RESULTS'; payload: AppState['capacityPlanning']['results'] }
+  | { type: 'SET_CAPACITY_STATUS'; payload: 'idle' | 'calculating' | 'completed' | 'error' }
+  | { type: 'SET_CAPACITY_ERRORS'; payload: string[] }
+  | { type: 'ENABLE_CAPACITY_PLANNING' };
 
 
 const initialState: AppState = {
@@ -145,10 +188,34 @@ const initialState: AppState = {
     hasForecasting: false,
     hasInsights: false,
     hasPreprocessing: false,
+    hasCapacityPlanning: false,
     lastAnalysisDate: null,
     lastAnalysisType: null,
     outliers: [],
     forecastData: []
+  },
+  capacityPlanning: {
+    enabled: false,
+    status: 'idle',
+    assumptions: {
+      aht: 50.0,
+      occupancy: 75.0,
+      backlog: 25.0,
+      attrition: 0.7,
+      volumeMix: 30.0,
+      inOfficeShrinkage: 10.0,
+      outOfOfficeShrinkage: 20.0
+    },
+    dateRange: {
+      startDate: null,
+      endDate: null,
+      autoPopulated: false
+    },
+    results: {
+      weeklyHC: [],
+      summary: null
+    },
+    errors: []
   },
   conversationContext: {
     topics: [],
@@ -165,6 +232,7 @@ const initialState: AppState = {
     hasTrainedModels: false,
     hasGeneratedForecast: false,
     hasViewedInsights: false,
+    hasCalculatedCapacity: false,
     lastAction: 'initial',
     lastAgentType: undefined
   }
@@ -578,6 +646,65 @@ function appReducer(state: AppState, action: Action): AppState {
 
     case 'SET_BUSINESS_UNITS':
       return { ...state, businessUnits: action.payload };
+
+    case 'SET_CAPACITY_ASSUMPTIONS':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          assumptions: action.payload
+        }
+      };
+
+    case 'SET_CAPACITY_DATE_RANGE':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          dateRange: {
+            startDate: action.payload.startDate,
+            endDate: action.payload.endDate,
+            autoPopulated: false
+          }
+        }
+      };
+
+    case 'UPDATE_CAPACITY_RESULTS':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          results: action.payload
+        }
+      };
+
+    case 'SET_CAPACITY_STATUS':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          status: action.payload
+        }
+      };
+
+    case 'SET_CAPACITY_ERRORS':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          errors: action.payload
+        }
+      };
+
+    case 'ENABLE_CAPACITY_PLANNING':
+      return {
+        ...state,
+        capacityPlanning: {
+          ...state.capacityPlanning,
+          enabled: true,
+          status: 'completed'
+        }
+      };
 
     default:
       return state;
