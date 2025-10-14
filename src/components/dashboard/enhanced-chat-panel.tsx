@@ -310,7 +310,7 @@ WHAT TO DO:
 ✅ "Best hyperparameters: learning_rate=0.1, max_depth=6"
 
 WHAT NOT TO DO:
-❌ Don't re-explain data patterns (EDA did this)
+❌ Don't re-explain data patterns (Validation did this)
 ❌ Don't describe cleaning steps (Preprocessing did this)
 ❌ Don't explain what MAPE means
 ❌ Don't give generic ML advice
@@ -2341,6 +2341,45 @@ Provide a specific, actionable response based on the actual data and forecast re
       return;
     }
 
+    // Check for capacity planning requests
+    const capacityPlanningKeywords = /calculate\s+(required\s+)?(head\s?count|hc|capacity)|plan\s+capacity|capacity\s+planning|workforce\s+planning|staffing\s+needs/i;
+    if (capacityPlanningKeywords.test(messageText)) {
+      // Check if capacity planning is enabled
+      if (!state.capacityPlanning.enabled) {
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `📊 **Capacity Planning Request**\n\nI can help you calculate required headcount based on your forecast! However, capacity planning requires forecasted data first.\n\n**Current Status:**\n• Forecasting: ${state.analyzedData.hasForecasting ? '✅ Complete' : '❌ Not completed'}\n• Capacity Planning: ${state.capacityPlanning.enabled ? '✅ Ready' : '⏳ Waiting for forecast'}\n\n**Next Steps:**\n${state.analyzedData.hasForecasting ? '• Scroll down to the **"📊 Step 7: Capacity Planning"** section below\n• Review the default assumptions or customize them\n• Click **"Calculate Required HC"** to get your staffing needs' : '• First, run a forecast analysis to predict future volumes\n• Then capacity planning will unlock automatically'}`,
+            suggestions: state.analyzedData.hasForecasting 
+              ? ['Show me the capacity planning section', 'What assumptions can I configure?', 'Explain the HC formula']
+              : ['Run forecast analysis', 'Generate predictions', 'Help me get started'],
+            agentType: 'onboarding'
+          }
+        });
+        return;
+      }
+
+      // Capacity planning is enabled - guide user to the section
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `📊 **Capacity Planning Ready!**\n\nGreat! Your forecast is complete and capacity planning is now available.\n\n**How to Calculate Required Headcount:**\n\n1. **Scroll down** to the **"📊 Step 7: Capacity Planning"** section in the dashboard below\n\n2. **Review Assumptions** - Default values are pre-configured:\n   • AHT (Average Handle Time): 50 seconds\n   • Occupancy: 75%\n   • Backlog: 25%\n   • Volume Mix: 30%\n   • Shrinkage rates: 10% (in-office), 20% (out-of-office)\n\n3. **Adjust if needed** - Modify any assumptions to match your business needs\n\n4. **Calculate** - Click the **"Calculate Required HC"** button\n\n5. **Review Results** - See weekly HC requirements, charts, and summary statistics\n\n**Current Date Range:**\n• Start: ${state.capacityPlanning.dateRange.startDate ? new Date(state.capacityPlanning.dateRange.startDate).toLocaleDateString() : 'Auto-populated'}\n• End: ${state.capacityPlanning.dateRange.endDate ? new Date(state.capacityPlanning.dateRange.endDate).toLocaleDateString() : 'Auto-populated'}\n\n💡 **Tip:** The capacity planning section is located right after the forecast results in your dashboard!`,
+          suggestions: [
+            'Explain the HC formula',
+            'What assumptions should I customize?',
+            'How do I export the results?',
+            'Show example calculation'
+          ],
+          agentType: 'onboarding'
+        }
+      });
+      return;
+    }
+
     // First, check for chat commands (BU/LOB creation, data upload)
     const chatCommand = chatCommandProcessor.parseCommand(messageText, 'default');
 
@@ -3057,7 +3096,7 @@ Ready to customize, or should I proceed with intelligent defaults?`,
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="mr-1.5"
+                        className="mr-1"
                       >
                         <path d="M12 5v14M19 12l-7 7-7-7" />
                       </svg>
