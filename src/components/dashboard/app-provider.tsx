@@ -276,6 +276,7 @@ function appReducer(state: AppState, action: Action): AppState {
           hasForecasting: false,
           hasInsights: false,
           hasPreprocessing: false,
+          hasCapacityPlanning: false,
           lastAnalysisDate: null,
           lastAnalysisType: null,
           outliers: [],
@@ -291,6 +292,7 @@ function appReducer(state: AppState, action: Action): AppState {
           hasTrainedModels: false,
           hasGeneratedForecast: false,
           hasViewedInsights: false,
+          hasCalculatedCapacity: false,
           lastAction: 'select_lob'
         }
       };
@@ -387,6 +389,7 @@ function appReducer(state: AppState, action: Action): AppState {
           hasForecasting: false,
           hasInsights: false,
           hasPreprocessing: false,
+          hasCapacityPlanning: false,
           lastAnalysisDate: null,
           lastAnalysisType: null,
           outliers: [],
@@ -590,6 +593,49 @@ function appReducer(state: AppState, action: Action): AppState {
       
       console.log('✅ Updated selectedLob with forecast metrics:', updatedSelectedLob?.forecastMetrics);
       
+      // Auto-enable capacity planning if forecast successful
+      const forecastData = action.payload.forecastData;
+      const hasForecastData = forecastData && forecastData.length > 0;
+      
+      let capacityPlanningUpdate = state.capacityPlanning;
+      
+      if (hasForecastData) {
+        // Calculate auto-populated date range
+        const historicalData = forecastData.filter(d => !d.Forecast || d.Forecast === 0);
+        const forecastedData = forecastData.filter(d => d.Forecast && d.Forecast > 0);
+        
+        let startDate: string | null = null;
+        let endDate: string | null = null;
+        
+        if (historicalData.length > 0) {
+          // Get last 5 weeks of historical data
+          const sortedHistorical = [...historicalData].sort((a, b) => 
+            new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          const lastHistoricalIndex = sortedHistorical.length - 1;
+          const startIndex = Math.max(0, lastHistoricalIndex - 4); // Last 5 weeks (index 0-based)
+          startDate = new Date(sortedHistorical[startIndex].Date).toISOString().split('T')[0];
+        }
+        
+        if (forecastedData.length > 0) {
+          // Get last forecasted week
+          const sortedForecast = [...forecastedData].sort((a, b) => 
+            new Date(a.Date).getTime() - new Date(b.Date).getTime()
+          );
+          endDate = new Date(sortedForecast[sortedForecast.length - 1].Date).toISOString().split('T')[0];
+        }
+        
+        capacityPlanningUpdate = {
+          ...state.capacityPlanning,
+          enabled: true,
+          dateRange: {
+            startDate,
+            endDate,
+            autoPopulated: true
+          }
+        };
+      }
+      
       return {
         ...state,
         businessUnits: updatedBusinessUnits,
@@ -605,7 +651,8 @@ function appReducer(state: AppState, action: Action): AppState {
           ...state.userActivity,
           hasGeneratedForecast: true,
           lastAction: 'generate_forecast'
-        }
+        },
+        capacityPlanning: capacityPlanningUpdate
       };
     }
     case 'TOGGLE_VISUALIZATION': {
@@ -652,7 +699,16 @@ function appReducer(state: AppState, action: Action): AppState {
         ...state,
         capacityPlanning: {
           ...state.capacityPlanning,
-          assumptions: action.payload
+          assumptions: action.payload,
+          // Clear errors related to assumptions
+          errors: state.capacityPlanning.errors.filter(e => 
+            !e.includes('AHT') && 
+            !e.includes('Occupancy') && 
+            !e.includes('Backlog') && 
+            !e.includes('Volume Mix') && 
+            !e.includes('Shrinkage') && 
+            !e.includes('Attrition')
+          )
         }
       };
 
@@ -674,7 +730,17 @@ function appReducer(state: AppState, action: Action): AppState {
         ...state,
         capacityPlanning: {
           ...state.capacityPlanning,
-          results: action.payload
+          results: action.payload,
+          status: 'completed',
+          errors: []
+        },
+        analyzedData: {
+          ...state.analyzedData,
+          hasCapacityPlanning: true
+        },
+        userActivity: {
+          ...state.userActivity,
+          hasCalculatedCapacity: true
         }
       };
 
@@ -692,19 +758,51 @@ function appReducer(state: AppState, action: Action): AppState {
         ...state,
         capacityPlanning: {
           ...state.capacityPlanning,
-          errors: action.payload
+          errors: action.payload,
+          status: 'error'
         }
       };
 
-    case 'ENABLE_CAPACITY_PLANNING':
+    case 'ENABLE_CAPACITY_PLANNING': {
+      // Calculate auto-populated date range from current state
+      const historicalData = state.selectedLob?.timeSeriesData?.filter(d => !d.Forecast || d.Forecast === 0) || [];
+      const forecastedData = state.selectedLob?.timeSeriesData?.filter(d => d.Forecast && d.Forecast > 0) || [];
+      
+      let startDate: string | null = null;
+      let endDate: string | null = null;
+      
+      if (historicalData.length > 0) {
+        // Get last 5 weeks of historical data
+        const sortedHistorical = [...historicalData].sort((a, b) => 
+          new Date(a.Date).getTime() - new Date(b.Date).getTime()
+        );
+        const lastHistoricalIndex = sortedHistorical.length - 1;
+        const startIndex = Math.max(0, lastHistoricalIndex - 4); // Last 5 weeks
+        startDate = new Date(sortedHistorical[startIndex].Date).toISOString().split('T')[0];
+      }
+      
+      if (forecastedData.length > 0) {
+        // Get last forecasted week
+        const sortedForecast = [...forecastedData].sort((a, b) => 
+          new Date(a.Date).getTime() - new Date(b.Date).getTime()
+        );
+        endDate = new Date(sortedForecast[sortedForecast.length - 1].Date).toISOString().split('T')[0];
+      }
+      
       return {
         ...state,
         capacityPlanning: {
           ...state.capacityPlanning,
           enabled: true,
-          status: 'completed'
+          status: 'idle',
+          dateRange: {
+            startDate,
+            endDate,
+            autoPopulated: true
+          }
         }
       };
+    }
 
     default:
       return state;
