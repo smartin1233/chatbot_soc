@@ -2367,19 +2367,19 @@ Provide a specific, actionable response based on the actual data and forecast re
         return;
       }
 
-      // Capacity planning is enabled - guide user to the section
+      // Capacity planning is enabled - show inline component
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `📊 **Capacity Planning Ready!**\n\nGreat! Your forecast is complete and capacity planning is now available.\n\n**How to Calculate Required Headcount:**\n\n1. **Scroll down** to the **"📊 Step 7: Capacity Planning"** section in the dashboard below\n\n2. **Review Assumptions** - Default values are pre-configured:\n   • AHT (Average Handle Time): 50 seconds\n   • Occupancy: 75%\n   • Backlog: 25%\n   • Volume Mix: 30%\n   • Shrinkage rates: 10% (in-office), 20% (out-of-office)\n\n3. **Adjust if needed** - Modify any assumptions to match your business needs\n\n4. **Calculate** - Click the **"Calculate Required HC"** button\n\n5. **Review Results** - See weekly HC requirements, charts, and summary statistics\n\n**Current Date Range:**\n• Start: ${state.capacityPlanning.dateRange.startDate ? new Date(state.capacityPlanning.dateRange.startDate).toLocaleDateString() : 'Auto-populated'}\n• End: ${state.capacityPlanning.dateRange.endDate ? new Date(state.capacityPlanning.dateRange.endDate).toLocaleDateString() : 'Auto-populated'}\n\n💡 **Tip:** The capacity planning section is located right after the forecast results in your dashboard!`,
+          content: `📊 **Capacity Planning Ready!**\n\nYour forecast is complete! Use the interactive capacity planning tool below to calculate required headcount.\n\n**What you can do:**\n• Review and customize the pre-configured assumptions\n• Adjust parameters like AHT, Occupancy, Backlog, etc.\n• Calculate required HC based on your forecasted volumes\n• Export results as CSV for further analysis\n\n**Date Range:** ${state.capacityPlanning.dateRange.startDate ? new Date(state.capacityPlanning.dateRange.startDate).toLocaleDateString() : 'Auto-populated'} - ${state.capacityPlanning.dateRange.endDate ? new Date(state.capacityPlanning.dateRange.endDate).toLocaleDateString() : 'Auto-populated'}`,
           suggestions: [
             'Explain the HC formula',
             'What assumptions should I customize?',
-            'How do I export the results?',
             'Show example calculation'
           ],
+          showCapacityPlanning: true,
           agentType: 'onboarding'
         }
       });
