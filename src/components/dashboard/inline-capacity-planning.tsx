@@ -89,16 +89,20 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       ...prev,
       [field]: value
     }));
-    // Update global state
+    
+    // Convert to ISO date and update global state
+    const isoDate = weekToISODate(value);
     if (field === 'startDate' && customDateRange.endDate) {
+      const endIsoDate = weekToISODate(customDateRange.endDate);
       dispatch({
         type: 'SET_CAPACITY_DATE_RANGE',
-        payload: { startDate: weekToISODate(value), endDate: customDateRange.endDate }
+        payload: { startDate: isoDate, endDate: endIsoDate }
       });
     } else if (field === 'endDate' && customDateRange.startDate) {
+      const startIsoDate = weekToISODate(customDateRange.startDate);
       dispatch({
         type: 'SET_CAPACITY_DATE_RANGE',
-        payload: { startDate: customDateRange.startDate, endDate: weekToISODate(value) }
+        payload: { startDate: startIsoDate, endDate: isoDate }
       });
     }
   };
@@ -111,14 +115,19 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
 
       const timeSeriesData = state.selectedLob?.timeSeriesData || [];
       
+      // Convert week format to ISO dates
+      const startDateISO = weekToISODate(customDateRange.startDate);
+      const endDateISO = weekToISODate(customDateRange.endDate);
+      
       console.log('🔍 Capacity Planning Debug:');
       console.log('📊 Total data points:', timeSeriesData.length);
       console.log('📊 Sample data point:', timeSeriesData[0]);
       console.log('📊 Data properties:', timeSeriesData[0] ? Object.keys(timeSeriesData[0]) : 'No data');
-      console.log('📅 Date range:', customDateRange);
+      console.log('📅 Week range (input):', customDateRange);
+      console.log('📅 Date range (ISO):', { startDateISO, endDateISO });
 
       if (!customDateRange.startDate || !customDateRange.endDate) {
-        throw new Error('Please select both start and end dates.');
+        throw new Error('Please select both start and end weeks.');
       }
 
       const workflow = new SequentialAgentWorkflow(
@@ -146,8 +155,8 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
       const results = await workflow.executeCapacityPlanningStep(
         localAssumptions,
         {
-          startDate: weekToISODate(customDateRange.startDate),
-          endDate: weekToISODate(customDateRange.endDate)
+          startDate: startDateISO,
+          endDate: endDateISO
         }
       );
 
