@@ -180,7 +180,7 @@ DETAILED OUTLIER REPORT FORMAT:
 • Option 1: Cap outliers at 95th percentile (3,892) - preserves data
 • Option 2: Remove outliers - reduces noise but loses information
 • Option 3: Keep outliers - use robust models (XGBoost, Random Forest)
-• Suggested: Option 1 for balanced approach`
+• Suggested: Option 1 for balanced approach
 
 WHAT TO DO:
 ✅ List EVERY outlier with specific values and dates
