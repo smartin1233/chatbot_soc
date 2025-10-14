@@ -2,6 +2,17 @@
  * Sequential Agent Workflow - Proper data flow between agents
  */
 
+import {
+  validateAssumptions,
+  validateDateRange,
+  calculateWeeklyHC,
+  aggregateResults,
+  type CapacityAssumptions,
+  type DateRange,
+  type WeeklyHCResult,
+  type SummaryStats
+} from './capacity-planning-utils';
+
 export interface WorkflowState {
   buLobContext: {
     businessUnit: string;
@@ -16,6 +27,10 @@ export interface WorkflowState {
   validationResults?: any;
   forecastResults?: any;
   insights?: any;
+  capacityPlanningResults?: {
+    weeklyHC: WeeklyHCResult[];
+    summary: SummaryStats;
+  };
   currentStep: number;
   totalSteps: number;
   stepResults: Record<string, any>;
@@ -34,7 +49,7 @@ export class SequentialAgentWorkflow {
       },
       rawData,
       currentStep: 0,
-      totalSteps: 6,
+      totalSteps: 7,
       stepResults: {}
     };
   }
@@ -414,6 +429,74 @@ ${insights.recommendations.shortTerm.map(rec => `• ${rec}`).join('\n')}
 • **Strategic Advantage:** Data-driven decision making for ${buLobContext.lineOfBusiness}`;
 
     return { result: insights, response };
+  }
+
+  /**
+   * Execute Capacity Planning Step (Step 7)
+   * Calculates required headcount based on forecasted volumes and business assumptions
+   * @param assumptions - Capacity planning assumptions (AHT, occupancy, etc.)
+   * @param dateRange - Date range for HC calculation
+   * @returns Aggregated HC results with weekly breakdown and summary statistics
+   */
+  async executeCapacityPlanningStep(
+    assumptions: CapacityAssumptions,
+    dateRange: DateRange
+  ): Promise<{ weeklyHC: WeeklyHCResult[]; summary: SummaryStats }> {
+    console.log('🔄 Starting Capacity Planning Step...');
+    
+    // Step 1: Validate assumptions
+    console.log('📋 Validating assumptions...');
+    const assumptionValidation = validateAssumptions(assumptions);
+    if (!assumptionValidation.valid) {
+      const errorMessage = `Assumption validation failed: ${assumptionValidation.errors.join(', ')}`;
+      console.error('❌', errorMessage);
+      throw new Error(errorMessage);
+    }
+    console.log('✅ Assumptions validated successfully');
+
+    // Step 2: Validate date range and separate historical vs forecasted weeks
+    console.log('📅 Validating date range...');
+    const historicalData = this.currentState.processedData || this.currentState.rawData || [];
+    const forecastData = this.currentState.forecastResults?.forecastPoints || [];
+    
+    const dateValidation = validateDateRange(
+      dateRange,
+      historicalData,
+      forecastData
+    );
+    
+    if (!dateValidation.valid) {
+      const errorMessage = `Date range validation failed: ${dateValidation.errors.join(', ')}`;
+      console.error('❌', errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    console.log(`✅ Date range validated: ${dateValidation.historicalWeeks.length} historical weeks, ${dateValidation.forecastedWeeks.length} forecasted weeks`);
+
+    // Step 3: Calculate weekly HC for each week
+    console.log('🔢 Calculating weekly HC...');
+    const weeklyResults = calculateWeeklyHC(
+      assumptions,
+      dateValidation.historicalWeeks,
+      dateValidation.forecastedWeeks,
+      historicalData,
+      forecastData
+    );
+    console.log(`✅ Calculated HC for ${weeklyResults.length} weeks`);
+
+    // Step 4: Aggregate results and calculate summary statistics
+    console.log('📊 Aggregating results...');
+    const aggregated = aggregateResults(weeklyResults);
+    console.log(`✅ Results aggregated: Total HC = ${aggregated.summary.totalHC}, Avg HC = ${aggregated.summary.avgHC}`);
+
+    // Step 5: Update workflow state
+    this.currentState.capacityPlanningResults = aggregated;
+    this.currentState.currentStep = 7;
+
+    console.log('✅ Capacity Planning Step completed successfully');
+
+    // Return results
+    return aggregated;
   }
 
   // Helper methods
