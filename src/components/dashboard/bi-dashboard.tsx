@@ -13,6 +13,7 @@ import { useApp } from "./app-provider";
 import { statisticalAnalyzer, insightsGenerator } from "@/lib/statistical-analysis";
 import { dynamicInsightsAnalyzer } from "@/lib/dynamic-insights-analyzer";
 import { cn } from "@/lib/utils";
+import { CapacityPlanningPanel } from "./capacity-planning-panel";
 
 interface KPIMetric {
   label: string;
@@ -522,6 +523,13 @@ export default function BIDashboard() {
           </Card>
         )}
       </div>
+
+      {/* Capacity Planning Section */}
+      {state.capacityPlanning.enabled && (
+        <div className="mb-6">
+          <CapacityPlanningPanel />
+        </div>
+      )}
 
       {/* Dynamic Insights and Recommendations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
