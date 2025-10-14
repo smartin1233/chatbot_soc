@@ -12,6 +12,7 @@ export interface UserActivity {
   hasTrainedModels: boolean;
   hasGeneratedForecast: boolean;
   hasViewedInsights: boolean;
+  hasCalculatedCapacity?: boolean;
   lastAction: string;
   dataQuality?: number;
   recordCount?: number;
