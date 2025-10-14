@@ -284,66 +284,70 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
         )}
 
         {/* Assumptions Configuration - Compact numeric inputs */}
-        <div>
-          <h4 className="text-sm font-semibold mb-2">Configure Assumptions</h4>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { key: 'aht', label: 'AHT (seconds)', unit: 's' },
-              { key: 'occupancy', label: 'Occupancy', unit: '%' },
-              { key: 'backlog', label: 'Backlog', unit: '%' },
-              { key: 'volumeMix', label: 'Volume Mix', unit: '%' },
-              { key: 'inOfficeShrinkage', label: 'In-Office Shrinkage', unit: '%' },
-              { key: 'outOfOfficeShrinkage', label: 'Out-Office Shrinkage', unit: '%' },
-              { key: 'attrition', label: 'Attrition', unit: '%' }
-            ].map(({ key, label, unit }) => (
-              <div key={key} className="flex items-center gap-2">
-                <label className="text-xs text-muted-foreground flex-1">{label}:</label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  value={localAssumptions[key as keyof typeof localAssumptions]}
-                  onChange={(e) => handleAssumptionChange(key as keyof typeof localAssumptions, e.target.value)}
-                  onBlur={handleAssumptionBlur}
-                  disabled={isCalculating}
-                  className="w-24 h-8 text-sm"
-                />
-                <span className="text-xs text-muted-foreground w-6">{unit}</span>
+        {state.capacityPlanning.status !== 'completed' && (
+          <>
+            <div>
+              <h4 className="text-sm font-semibold mb-2">Configure Assumptions</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'aht', label: 'AHT (seconds)', unit: 's' },
+                  { key: 'occupancy', label: 'Occupancy', unit: '%' },
+                  { key: 'backlog', label: 'Backlog', unit: '%' },
+                  { key: 'volumeMix', label: 'Volume Mix', unit: '%' },
+                  { key: 'inOfficeShrinkage', label: 'In-Office Shrinkage', unit: '%' },
+                  { key: 'outOfOfficeShrinkage', label: 'Out-Office Shrinkage', unit: '%' },
+                  { key: 'attrition', label: 'Attrition', unit: '%' }
+                ].map(({ key, label, unit }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground flex-1">{label}:</label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={localAssumptions[key as keyof typeof localAssumptions]}
+                      onChange={(e) => handleAssumptionChange(key as keyof typeof localAssumptions, e.target.value)}
+                      onBlur={handleAssumptionBlur}
+                      disabled={isCalculating}
+                      className="w-24 h-8 text-sm"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">{unit}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Date Range Picker */}
-        <div>
-          <h4 className="text-sm font-semibold mb-2">Week Range Selection</h4>
-          <div className="grid grid-cols-2 gap-3">
+            {/* Date Range Picker */}
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Start Week</label>
-              <Input
-                type="week"
-                value={customDateRange.startDate}
-                onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
-                className="text-sm"
-                disabled={isCalculating}
-              />
+              <h4 className="text-sm font-semibold mb-2">Week Range Selection</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Start Week</label>
+                  <Input
+                    type="week"
+                    value={customDateRange.startDate}
+                    onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                    className="text-sm"
+                    disabled={isCalculating}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">End Week</label>
+                  <Input
+                    type="week"
+                    value={customDateRange.endDate}
+                    onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                    className="text-sm"
+                    disabled={isCalculating}
+                  />
+                </div>
+              </div>
+              {state.capacityPlanning.dateRange.autoPopulated && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-populated with last 5 historical weeks + all forecasted weeks
+                </p>
+              )}
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">End Week</label>
-              <Input
-                type="week"
-                value={customDateRange.endDate}
-                onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
-                className="text-sm"
-                disabled={isCalculating}
-              />
-            </div>
-          </div>
-          {state.capacityPlanning.dateRange.autoPopulated && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Auto-populated with last 5 historical weeks + all forecasted weeks
-            </p>
-          )}
-        </div>
+          </>
+        )}
 
         {/* Calculate Button */}
         {state.capacityPlanning.status !== 'completed' && (
