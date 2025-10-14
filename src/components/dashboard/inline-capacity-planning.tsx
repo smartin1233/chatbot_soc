@@ -367,6 +367,168 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
               </div>
             </div>
 
+            {/* HC Trend Chart with Toggle */}
+            <div className="border rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-sm">Required HC Trend</h4>
+                <div className="flex gap-1 border rounded-md p-1">
+                  <Button
+                    size="sm"
+                    variant={chartType === 'line' ? 'default' : 'ghost'}
+                    onClick={() => setChartType('line')}
+                    className="h-7 px-3 text-xs"
+                  >
+                    Line
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={chartType === 'bar' ? 'default' : 'ghost'}
+                    onClick={() => setChartType('bar')}
+                    className="h-7 px-3 text-xs"
+                  >
+                    Bar
+                  </Button>
+                </div>
+              </div>
+              
+              <ResponsiveContainer width="100%" height={250}>
+                {chartType === 'line' ? (
+                  <LineChart data={state.capacityPlanning.results.weeklyHC.map(week => ({
+                    week: formatDate(week.week),
+                    weekRaw: week.week,
+                    requiredHC: week.requiredHC,
+                    volume: week.volume,
+                    dataType: week.dataType
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="week"
+                      tick={{ fontSize: 11 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={70}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-2 border rounded shadow-lg text-xs">
+                              <p className="font-semibold">{data.week}</p>
+                              <p>
+                                <span className="text-muted-foreground">Required HC:</span>{' '}
+                                <span className="font-semibold">{data.requiredHC}</span>
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Volume:</span>{' '}
+                                {data.volume.toLocaleString()}
+                              </p>
+                              <Badge
+                                className={data.dataType === 'actual' ? 'bg-green-50 text-green-700 text-xs mt-1' : 'bg-blue-50 text-blue-700 text-xs mt-1'}
+                              >
+                                {data.dataType === 'actual' ? 'Actual' : 'Forecasted'}
+                              </Badge>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    {(() => {
+                      const chartData = state.capacityPlanning.results.weeklyHC.map(week => ({
+                        week: formatDate(week.week),
+                        dataType: week.dataType
+                      }));
+                      const splitIndex = chartData.findIndex(d => d.dataType === 'forecasted');
+                      return splitIndex > 0 ? (
+                        <ReferenceLine
+                          x={chartData[splitIndex].week}
+                          stroke="#666"
+                          strokeDasharray="3 3"
+                          label={{ value: 'Forecast Start', position: 'top', fontSize: 10 }}
+                        />
+                      ) : null;
+                    })()}
+                    <Line
+                      type="monotone"
+                      dataKey="requiredHC"
+                      stroke="#1976d2"
+                      strokeWidth={2}
+                      name="Required HC"
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                ) : (
+                  <BarChart data={state.capacityPlanning.results.weeklyHC.map(week => ({
+                    week: formatDate(week.week),
+                    weekRaw: week.week,
+                    requiredHC: week.requiredHC,
+                    volume: week.volume,
+                    dataType: week.dataType
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="week"
+                      tick={{ fontSize: 11 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={70}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-2 border rounded shadow-lg text-xs">
+                              <p className="font-semibold">{data.week}</p>
+                              <p>
+                                <span className="text-muted-foreground">Required HC:</span>{' '}
+                                <span className="font-semibold">{data.requiredHC}</span>
+                              </p>
+                              <p>
+                                <span className="text-muted-foreground">Volume:</span>{' '}
+                                {data.volume.toLocaleString()}
+                              </p>
+                              <Badge
+                                className={data.dataType === 'actual' ? 'bg-green-50 text-green-700 text-xs mt-1' : 'bg-blue-50 text-blue-700 text-xs mt-1'}
+                              >
+                                {data.dataType === 'actual' ? 'Actual' : 'Forecasted'}
+                              </Badge>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                    {(() => {
+                      const chartData = state.capacityPlanning.results.weeklyHC.map(week => ({
+                        week: formatDate(week.week),
+                        dataType: week.dataType
+                      }));
+                      const splitIndex = chartData.findIndex(d => d.dataType === 'forecasted');
+                      return splitIndex > 0 ? (
+                        <ReferenceLine
+                          x={chartData[splitIndex].week}
+                          stroke="#666"
+                          strokeDasharray="3 3"
+                          label={{ value: 'Forecast Start', position: 'top', fontSize: 10 }}
+                        />
+                      ) : null;
+                    })()}
+                    <Bar
+                      dataKey="requiredHC"
+                      fill="#1976d2"
+                      name="Required HC"
+                    />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+
             {/* Results Table with Strong Section Dividers */}
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
