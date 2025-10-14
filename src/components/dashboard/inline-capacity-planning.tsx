@@ -265,12 +265,12 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
 
         {/* Date Range Picker */}
         <div>
-          <h4 className="text-sm font-semibold mb-2">Date Range Selection</h4>
+          <h4 className="text-sm font-semibold mb-2">Week Range Selection</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">Start Date</label>
+              <label className="text-xs text-muted-foreground block mb-1">Start Week</label>
               <Input
-                type="date"
+                type="week"
                 value={customDateRange.startDate}
                 onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
                 className="text-sm"
@@ -278,9 +278,9 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">End Date</label>
+              <label className="text-xs text-muted-foreground block mb-1">End Week</label>
               <Input
-                type="date"
+                type="week"
                 value={customDateRange.endDate}
                 onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
                 className="text-sm"
