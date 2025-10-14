@@ -233,6 +233,10 @@ export class DynamicSuggestionGenerator {
 
       case 'forecasting':
         // After forecasting, suggest insights/export (NOT forecasting again)
+        if (!activity.hasCalculatedCapacity) {
+          suggestions.push('Calculate required headcount');
+          suggestions.push('Plan capacity with forecasted volumes');
+        }
         if (!activity.hasViewedInsights) {
           suggestions.push('Generate business insights');
         }
