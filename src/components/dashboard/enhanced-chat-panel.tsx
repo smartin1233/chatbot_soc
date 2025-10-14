@@ -880,7 +880,9 @@ class EnhancedMultiAgentChatHandler {
               businessInsights: []
             };
 
-            if (!aggregatedInsights[agentKey]) aggregatedInsights[agentKey] = {};
+            if (!aggregatedInsights[agentKey]) {
+              aggregatedInsights[agentKey] = {};
+            }
             aggregatedInsights[agentKey] = {
               ...aggregatedInsights[agentKey],
               agentName: agent.name,
@@ -891,7 +893,9 @@ class EnhancedMultiAgentChatHandler {
             };
 
             // Ensure finalReportData for single-agent flows
-            if (agents.length === 1) finalReportData = reportData;
+            if (agents.length === 1) {
+              finalReportData = reportData;
+            }
 
             this.dispatch({ type: 'ADD_THINKING_STEP', payload: '📊 Deterministic EDA summary generated' });
           } catch (e) {
@@ -1168,7 +1172,7 @@ class EnhancedMultiAgentChatHandler {
       // Log for debugging
       console.log('Visualization data prepared:', {
         totalPoints: lobToUse.timeSeriesData.length,
-        forecastPoints: lobToUse.timeSeriesData.filter((d: any) => d.Forecast && d.Forecast > 0).length,
+        forecastPoints: lobToUse.timeSeriesData.filter((d: any) => d.Forecast !== undefined && d.Forecast > 0).length,
         hasForecast,
         hasOutliers,
         agents: agents
@@ -2668,12 +2672,12 @@ Would you like to customize these parameters, or should I use smart defaults?`,
             stepResults: workflowResult.stepByStepResults
           },
           suggestions: [
-            'Visualize actual vs forecast',
-            'Export forecast results',
+            'Calculate required headcount',
+            'Plan capacity needs',
             'Generate business insights',
             'Analyze forecast confidence',
-            'Compare with historical trends',
-            'Run scenario analysis'
+            'Visualize actual vs forecast',
+            'Export forecast results'
           ]
         }
       });
