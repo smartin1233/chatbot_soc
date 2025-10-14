@@ -263,16 +263,36 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
           </div>
         </div>
 
-        {/* Date Range Display */}
-        <div className="text-sm">
-          <span className="font-semibold">Date Range: </span>
-          <span className="text-muted-foreground">
-            {customDateRange.startDate && customDateRange.endDate ? (
-              `${formatDate(customDateRange.startDate)} - ${formatDate(customDateRange.endDate)}`
-            ) : (
-              'Auto-populated'
-            )}
-          </span>
+        {/* Date Range Picker */}
+        <div>
+          <h4 className="text-sm font-semibold mb-2">Date Range Selection</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Start Date</label>
+              <Input
+                type="date"
+                value={customDateRange.startDate}
+                onChange={(e) => handleDateRangeChange('startDate', e.target.value)}
+                className="text-sm"
+                disabled={isCalculating}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">End Date</label>
+              <Input
+                type="date"
+                value={customDateRange.endDate}
+                onChange={(e) => handleDateRangeChange('endDate', e.target.value)}
+                className="text-sm"
+                disabled={isCalculating}
+              />
+            </div>
+          </div>
+          {state.capacityPlanning.dateRange.autoPopulated && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Auto-populated with last 5 historical weeks + all forecasted weeks
+            </p>
+          )}
         </div>
 
         {/* Calculate Button */}
