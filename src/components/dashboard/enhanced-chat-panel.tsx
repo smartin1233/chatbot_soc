@@ -1,5 +1,3 @@
-'use client';
-
 import React, { FormEvent, useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -26,6 +24,7 @@ import { agentResponseGenerator } from '@/lib/agent-response-generator';
 import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
 import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 import ModelTrainingForm, { type ModelTrainingConfig } from './model-training-form';
+import { InlineCapacityPlanning } from './inline-capacity-planning';
 
 const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
 
@@ -310,7 +309,7 @@ WHAT TO DO:
 ✅ "Best hyperparameters: learning_rate=0.1, max_depth=6"
 
 WHAT NOT TO DO:
-❌ Don't re-explain data patterns (Validation did this)
+❌ Don't repeat training metrics (Validation did this)
 ❌ Don't describe cleaning steps (Preprocessing did this)
 ❌ Don't explain what MAPE means
 ❌ Don't give generic ML advice
@@ -1411,7 +1410,7 @@ function EnhancedChatBubble({
         if (modelLines.length > 1) {
           const testedModels = lines.filter(l => /^•\s*\*\*\w+\*\*:/.test(l.trim()));
           const modelNames = testedModels.map(l => l.match(/\*\*(\w+)\*\*/)?.[1]).filter(Boolean);
-          const bestModel = bestModelLine?.match(/Selected Model:\s*\*\*(\w+)\*\*/)?.[1] ||
+          const bestModel = bestModelLine?.match(/Best Performer:\s*\*\*(\w+)\*\*/)?.[1] ||
             lines.find(l => /Best Performer/.test(l))?.match(/\*\*(\w+)\*\*/)?.[1];
 
           if (modelNames.length > 0 && bestModel) {
