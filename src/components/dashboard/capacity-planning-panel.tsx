@@ -453,7 +453,7 @@ export function CapacityPlanningPanel() {
                           <div className="bg-white p-3 border rounded-lg shadow-lg">
                             <p className="font-semibold">{data.week}</p>
                             <p className="text-sm">
-                              <span className="text-muted-foreground">Required HC:</span>{' '}
+                              <span className="text-muted-foreground">Required HC:</span>{''}
                               <span className="font-semibold">{data.requiredHC}</span>
                             </p>
                             <p className="text-sm">
@@ -473,14 +473,21 @@ export function CapacityPlanningPanel() {
                     }}
                   />
                   <Legend />
-                  {state.capacityPlanning.results.weeklyHC.findIndex(d => d.dataType === 'forecasted') > 0 && (
-                    <ReferenceLine
-                      x={state.capacityPlanning.results.weeklyHC.find(d => d.dataType === 'forecasted')?.week}
-                      stroke="#666"
-                      strokeDasharray="3 3"
-                      label={{ value: 'Forecast Start', position: 'top' }}
-                    />
-                  )}
+                  {(() => {
+                    const chartData = state.capacityPlanning.results.weeklyHC.map(week => ({
+                      week: formatDate(week.week),
+                      dataType: week.dataType
+                    }));
+                    const splitIndex = chartData.findIndex(d => d.dataType === 'forecasted');
+                    return splitIndex > 0 ? (
+                      <ReferenceLine
+                        x={chartData[splitIndex].week}
+                        stroke="#666"
+                        strokeDasharray="3 3"
+                        label={{ value: 'Forecast Start', position: 'top' }}
+                      />
+                    ) : null;
+                  })()}
                   <Line
                     type="monotone"
                     dataKey="requiredHC"
