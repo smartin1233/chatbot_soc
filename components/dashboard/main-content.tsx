@@ -6,6 +6,7 @@ import EnhancedDataPanel from "./enhanced-data-panel";
 import EnhancedChatPanel from "./enhanced-chat-panel";
 import EnhancedWorkflowTree from "./enhanced-workflow-tree";
 import WelcomeHero from "./welcome-hero";
+import CapacityPlanning from "./capacity-planning";
 
 export default function MainContent() {
   const { state, dispatch } = useApp();
@@ -55,6 +56,7 @@ export default function MainContent() {
           />
           <div style={{ width: `${rightPanelPct}%` }} className="flex flex-col overflow-hidden">
             <EnhancedDataPanel className="w-full h-full" />
+            <CapacityPlanning />
           </div>
         </div>
       </main>

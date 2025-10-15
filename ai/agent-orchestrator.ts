@@ -4,6 +4,7 @@
  */
 
 import type { Agent, WorkflowStep } from '@/lib/types';
+import { CapacityPlanningAgent } from './capacity-planning-agent';
 
 export type OrchestratorInput = {
   userMessage: string;
@@ -73,6 +74,7 @@ export class AgentOrchestrator {
     if (/forecast|predict/i.test(message)) return 'forecasting';
     if (/eda|analyz/i.test(message)) return 'eda';
     if (/preprocess|clean/i.test(message)) return 'preprocessing';
+    if (/capacity|headcount/i.test(message)) return 'capacity';
     return 'general';
   }
 
@@ -98,6 +100,10 @@ export class AgentOrchestrator {
       steps.push(
         { id: 'step-1', name: 'Data Preprocessing', status: 'pending', dependencies: [], estimatedTime: '30s', details: '', agent: 'Preprocessing Agent' }
       );
+    } else if (intent === 'capacity') {
+      steps.push(
+        { id: 'step-1', name: 'Capacity Planning', status: 'pending', dependencies: [], estimatedTime: '20s', details: '', agent: 'Capacity Planning Agent' }
+      );
     } else {
       steps.push(
         { id: 'step-1', name: 'General Assistance', status: 'pending', dependencies: [], estimatedTime: '10s', details: '', agent: 'General Assistant' }
@@ -111,7 +117,7 @@ export class AgentOrchestrator {
    */
   private async executeAgentStep(step: WorkflowStep, input: OrchestratorInput): Promise<{ output: string; provenanceKey: string }> {
     let output = '';
-    let provenanceKey = step.agent.toLowerCase().replace(/\s+/g, '_');
+    let provenanceKey = (step.agent || 'unknown').toLowerCase().replace(/\s+/g, '_');
     switch (step.agent) {
       case 'EDA Agent':
         output = await this.edaAgent(input);
@@ -127,6 +133,9 @@ export class AgentOrchestrator {
         break;
       case 'Forecasting Agent':
         output = await this.forecastingAgent(input);
+        break;
+      case 'Capacity Planning Agent':
+        output = await this.capacityPlanningAgent(input);
         break;
       default:
         output = await this.generalAgent(input);
@@ -189,6 +198,31 @@ export class AgentOrchestrator {
       "• Upload your data",
       "• Explore your data",
       "• Generate a forecast"
+    ].join("\n");
+  }
+
+  private async capacityPlanningAgent(input: OrchestratorInput): Promise<string> {
+    const agent = new CapacityPlanningAgent();
+    // Mock data for now
+    const planningInput = {
+      historicalData: [],
+      forecastData: [
+        { date: '2023-01-01', value: 1000 },
+        { date: '2023-01-08', value: 1100 },
+      ],
+      assumptions: {
+        callsPerHeadcount: 50,
+        shrinkage: 0.1,
+      },
+    };
+    const result = await agent.run(planningInput);
+    const headcountStrings = result.headcount.map(
+      (h) => `• ${h.date}: ${h.required} agents`
+    );
+    return [
+      "📋 **Capacity Plan**",
+      result.explanation,
+      ...headcountStrings,
     ].join("\n");
   }
 }

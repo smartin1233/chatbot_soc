@@ -9,7 +9,7 @@ import type { WorkflowStep, WorkflowStatus } from '@/lib/types';
 import { useApp } from './app-provider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { Button } from '../ui/button';
+import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const statusConfig: Record<WorkflowStatus, { icon: React.ReactNode; color: string }> = {

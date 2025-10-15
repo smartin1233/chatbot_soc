@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useApp } from "./app-provider";
-import DataPanel from "./data-panel";
-import ChatPanel from "./chat-panel";
-import WelcomeHero from "./welcome-hero";
+import { useApp } from "@/components/dashboard/app-provider";
+import DataPanel from "@/components/dashboard/data-panel";
+import ChatPanel from "@/components/dashboard/chat-panel";
+import WelcomeHero from "@/components/dashboard/welcome-hero";
 
 export default function MainContent() {
   const { state, dispatch } = useApp();

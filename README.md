@@ -628,7 +628,7 @@ import google.generativeai as genai
 app = FastAPI(title="Enhanced Agentic Chatbot API")
 
 # Configure Gemini AI
-genai.configure(api_key="AIzaSyC9HUwhTJvg828gaLS7sfcG1DB5fGoB0CA")
+genai.configure(api_key="YOUR_API_KEY")
 
 class ChatRequest(BaseModel):
     message: str
@@ -1635,7 +1635,7 @@ describe('Performance Tests', () => {
 
 ```typescript
 interface SecurityConfig {
-  geminiApiKey: string; // AIzaSyC9HUwhTJvg828gaLS7sfcG1DB5fGoB0CA
+  geminiApiKey: string; // YOUR_API_KEY
   rateLimiting: {
     maxRequestsPerMinute: number;
     maxConcurrentSessions: number;

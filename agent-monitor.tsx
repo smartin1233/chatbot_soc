@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Separator } from '../ui/separator';
+import { Separator } from '@/components/ui/separator';
 
 const statusConfig: Record<AgentStatus, { icon: React.ReactNode; color: string; badgeVariant: "default" | "secondary" | "destructive" | "outline" }> = {
   active: { icon: <Activity className="h-4 w-4" />, color: 'text-green-500', badgeVariant: 'default' },

@@ -3,7 +3,6 @@
  */
 
 import type { Agent, WorkflowStep } from '@/lib/types';
-import { openaiClient } from '@/lib/api-client';
 import { statisticalAnalyzer, insightsGenerator } from '@/lib/statistical-analysis';
 
 export interface EnhancedOrchestratorInput {

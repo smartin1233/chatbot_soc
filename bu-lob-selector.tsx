@@ -18,8 +18,8 @@ import { ChevronDown, Folder, PlusCircle, UploadCloud, CheckCircle, FileWarning,
 import { useApp } from './app-provider';
 import type { BusinessUnit, LineOfBusiness } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 function AddBuDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (isOpen: boolean) => void }) {

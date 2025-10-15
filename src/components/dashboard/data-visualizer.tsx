@@ -77,26 +77,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function DataVisualizer({ data, target, isRealData, showOutliers = false }: DataVisualizerProps) {
   const [chartType, setChartType] = useState<ChartType>('line');
 
-  if (!isRealData) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-destructive">
-            Data Visualization Unavailable
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            <span>
-              Visualization is disabled because the data is not from a validated backend workflow.
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Process data: detect CRITICAL outliers only, format dates, separate actual vs forecast
   const processedData = useMemo(() => {
     // Calculate CRITICAL outliers using stricter IQR method (3.0 instead of 1.5)
@@ -123,6 +103,26 @@ export default function DataVisualizer({ data, target, isRealData, showOutliers 
       }
     }).sort((a, b) => a.timestamp - b.timestamp);
   }, [data]);
+
+  if (!isRealData) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-destructive">
+            Data Visualization Unavailable
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            <span>
+              Visualization is disabled because the data is not from a validated backend workflow.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const hasForecast = processedData.some(d => d.Forecast !== null && d.Forecast !== undefined);
   const hasOrders = processedData.some(d => d.Orders && d.Orders > 0);
