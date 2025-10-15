@@ -2666,7 +2666,6 @@ Ready to customize, or should I proceed with intelligent defaults?`,
 
   const submitMessage = async (userMessage: string) => {
     const startTime = Date.now();
-    const state = useApp.getState();
     const context = state.conversationContext;
 
     // Add user message to history
