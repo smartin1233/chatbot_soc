@@ -25,7 +25,6 @@ import { dynamicSuggestionGenerator } from '@/lib/dynamic-suggestions';
 import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 import ModelTrainingForm, { type ModelTrainingConfig } from './model-training-form';
 import { InlineCapacityPlanning } from './inline-capacity-planning';
-import { AssumptionsPreview } from './assumptions-preview';
 
 const safeFixed = (val: any, digits: number = 2) => (val === null || val === undefined || !isFinite(Number(val))) ? 'N/A' : Number(val).toFixed(digits);
 
@@ -1808,13 +1807,6 @@ function EnhancedChatBubble({
             </div>
           )}
 
-          {/* Assumptions Preview Component */}
-          {(message as any).showAssumptionsPreview && (
-            <div className="mt-3">
-              <AssumptionsPreview onConfirm={handleAssumptionsConfirm} />
-            </div>
-          )}
-
           {/* Suggestions */}
           {message.suggestions && message.suggestions.length > 0 && (
             <div className="bg-muted/20 rounded-lg p-3">
@@ -2391,13 +2383,13 @@ Provide a specific, actionable response based on the actual data and forecast re
           role: 'assistant',
           content: '👥 **Capacity Planner Agent Activated**\n\n⏳ Fetching data and calculating required headcount...',
           isTyping: true,
-          agentType: 'capacityPlanner'
+          agentType: 'onboarding'
         }
       });
 
       // Create workflow instance and execute capacity planning
-      const sequentialWorkflow = new SequentialAgentWorkflow(state, timeSeriesData);
-      
+      const sequentialWorkflow = new SequentialAgentWorkflow(state, state.selectedLob?.timeSeriesData || []);
+
       const dateRange = {
         startDate: state.capacityPlanning.dateRange.startDate || '',
         endDate: state.capacityPlanning.dateRange.endDate || ''
@@ -2428,14 +2420,14 @@ ASSUMPTIONS APPLIED:
 • Backlog: ${assumptions.backlog}%
 • Volume Mix: ${assumptions.volumeMix}%
 • In-Office Shrinkage: ${assumptions.inOfficeShrinkage}%
-• Out-of-Office Shrinkage: ${assumptions.outOfOfficeShrinkage}%
+• Out Of-Office Shrinkage: ${assumptions.outOfOfficeShrinkage}%
 • Attrition: ${assumptions.attrition}%
 
 CAPACITY PLANNING RESULTS:
 • Total Required HC: ${results.summary?.totalHC || 0}
 • Average Weekly HC: ${results.summary?.avgHC || 0}
-• Peak HC: ${results.summary?.maxHC?.value || 0} (Week of ${results.summary?.maxHC?.week ? new Date(results.summary.maxHC.week).toLocaleDateString() : 'N/A'})
-• Minimum HC: ${results.summary?.minHC?.value || 0} (Week of ${results.summary?.minHC?.week ? new Date(results.summary.minHC.week).toLocaleDateString() : 'N/A'})
+• Peak HC: ${results.summary?.maxHC?.value || 0} (Week ${results.summary?.maxHC?.week ? new Date(results.summary.maxHC.week).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'})
+• Minimum HC: ${results.summary?.minHC?.value || 0} (Week ${results.summary?.minHC?.week ? new Date(results.summary.minHC.week).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A'})
 • Historical Average: ${results.summary?.historicalAvg || 0}
 • Forecasted Average: ${results.summary?.forecastedAvg || 0}
 
@@ -2471,7 +2463,7 @@ Provide a comprehensive analysis with data overview, assumptions applied, key re
             'Explain the calculation',
             'Show detailed breakdown'
           ],
-          agentType: 'capacityPlanner'
+          agentType: 'onboarding'
         }
       });
 
@@ -2480,10 +2472,10 @@ Provide a comprehensive analysis with data overview, assumptions applied, key re
       dispatch({
         type: 'UPDATE_LAST_MESSAGE',
         payload: {
-          content: `❌ **Error Calculating Capacity**\n\n${error.message}\n\nPlease check your data and try again.`,
+          content: `❌ **Error Calculating Headcount**\n\n${error.message}\n\nPlease check your assumptions and date range, then try again.`,
           isTyping: false,
-          suggestions: ['Check data', 'Try again', 'Get help'],
-          agentType: 'capacityPlanner'
+          suggestions: ['Review assumptions', 'Check date range', 'Try again'],
+          agentType: 'onboarding'
         }
       });
     } finally {
