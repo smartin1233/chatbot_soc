@@ -886,7 +886,7 @@ class EnhancedMultiAgentChatHandler {
           cleanedResponse = cleanedResponse.replace(/^\s*[\{\}]\s*$/gm, '');
           cleanedResponse = cleanedResponse.trim();
 
-          // Extract one-line summary (first meaningful sentence)
+          // Extract one-line summary (first meaningful paragraph)
           const lines = cleanedResponse.split('\n').filter(l => l.trim() && !l.startsWith('#'));
           const oneLiner = lines[0] || `Completed ${agent.specialty}`;
 
@@ -1234,8 +1234,7 @@ class EnhancedMultiAgentChatHandler {
       visualizationData = {
         data: lobToUse.timeSeriesData,
         target: 'Value' as 'Value' | 'Orders',
-        isShowing: false,
-        showOutliers: false
+        isRealData: true
       };
 
       // Log for debugging
@@ -2569,15 +2568,18 @@ Ready to customize, or should I proceed with intelligent defaults?`,
   const handleGenerateReport = (messageId: string) => {
     const msg = state.messages.find(m => m.id === messageId);
     if (msg?.reportData && msg.agentType) {
-      dispatch({
-        type: 'GENERATE_REPORT',
-        payload: {
-          messageId,
-          reportData: msg.reportData,
-          agentType: msg.agentType,
-          timestamp: new Date().toISOString()
-        }
-      });
+      console.log('Report Data:', msg.reportData);
+      console.log('Agent Type:', msg.agentType);
+    }
+  };
+
+  const handleFormSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const userInput = formData.get('message') as string;
+    if (userInput.trim()) {
+      e.currentTarget.reset();
+      submitMessage(userInput);
     }
   };
 
