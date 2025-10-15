@@ -181,20 +181,25 @@ export class EnhancedAPIClient {
   // Test API key validity
   async testAPIKey(provider: 'openai', apiKey: string): Promise<{ isValid: boolean; error?: string }> {
     try {
-      const testClient = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true,
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'validate_api_key',
+          provider,
+          apiKey,
+        }),
       });
 
-      const testModel = 'gpt-4o-mini';
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { isValid: false, error: errorData.error || 'Validation request failed' };
+      }
 
-      const response = await testClient.chat.completions.create({
-        model: testModel,
-        messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 5,
-      });
-
-      return { isValid: true };
+      const data = await response.json();
+      return data;
     } catch (error: any) {
       return { 
         isValid: false, 

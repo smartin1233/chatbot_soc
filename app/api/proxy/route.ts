@@ -182,6 +182,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'validate_api_key') {
+      const { provider, apiKey } = body;
+      const url = provider === 'openai' ? 'https://api.openai.com/v1/models' : 'https://openrouter.ai/api/v1/models';
+      const headers = {
+        'Authorization': `Bearer ${apiKey}`,
+      };
+
+      try {
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          return NextResponse.json({ isValid: true });
+        } else {
+          return NextResponse.json({ isValid: false, error: `API key is invalid. Status: ${response.status}` });
+        }
+      } catch (error) {
+        return NextResponse.json({ isValid: false, error: 'A connection error occurred.' });
+      }
+    }
+
     return NextResponse.json(
       { error: 'Invalid action' },
       { status: 400 }
