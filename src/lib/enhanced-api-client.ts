@@ -295,48 +295,40 @@ export class EnhancedAPIClient {
     temperature: number;
     max_tokens: number;
   }): Promise<any> {
-    const { model, messages, temperature, max_tokens } = params;
-    
-    const client = this.openaiClient;
-    if (!client) {
-      throw new Error('OpenAI client not initialized. Please check your API key.');
+    const { provider, model, messages, temperature, max_tokens } = params;
+
+    try {
+      const apiKey = this.config.openaiKey;
+      if (!apiKey) {
+        throw new Error('OpenAI API key is not configured.');
+      }
+
+      const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'chat_completion',
+          provider,
+          model,
+          messages,
+          temperature,
+          max_tokens,
+          apiKey,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Chat completion request failed');
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      throw this.handleError(error);
     }
-
-    // Rate limiting check
-    const identifier = 'openai-chat';
-    if (!this.rateLimiter.canMakeRequest(identifier)) {
-      throw new Error('Rate limit exceeded. Please wait before making another request.');
-    }
-
-    return new Promise((resolve, reject) => {
-      const request = async () => {
-        try {
-          this.rateLimiter.recordRequest(identifier);
-          
-          const completion = await client.chat.completions.create({
-            model,
-            messages,
-            temperature,
-            max_tokens,
-          });
-
-          const response = {
-            id: completion.id,
-            choices: completion.choices,
-            usage: completion.usage,
-            model: completion.model,
-            provider: 'openai'
-          };
-
-          resolve(response);
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      this.requestQueue.push(request);
-      this.processQueue();
-    });
   }
 
   private handleError(error: any): Error {

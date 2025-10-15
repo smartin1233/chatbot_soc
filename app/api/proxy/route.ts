@@ -201,6 +201,39 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (action === 'chat_completion') {
+      const { provider, model, messages, temperature, max_tokens, apiKey } = body;
+      const url = provider === 'openai' ? 'https://api.openai.com/v1/chat/completions' : 'https://openrouter.ai/api/v1/chat/completions';
+      const headers = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      };
+      const payload = {
+        model,
+        messages,
+        temperature,
+        max_tokens,
+      };
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          return NextResponse.json({ error: `Chat completion failed: ${response.status}`, details: errorText }, { status: response.status });
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data);
+      } catch (error) {
+        return NextResponse.json({ error: 'A connection error occurred.' }, { status: 500 });
+      }
+    }
+
     return NextResponse.json(
       { error: 'Invalid action' },
       { status: 400 }
