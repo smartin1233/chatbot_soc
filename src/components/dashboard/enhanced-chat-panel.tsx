@@ -2583,6 +2583,147 @@ Ready to customize, or should I proceed with intelligent defaults?`,
     }
   };
 
+  const handleFollowUpSubmit = (responses: UserResponse[]) => {
+    // Store the responses and close dialog
+    const responsesMap = new Map<string, any>();
+    responses.forEach(response => {
+      responsesMap.set(response.questionId, response.value);
+    });
+    setQuestionResponses(responsesMap);
+    setShowFollowUpQuestions(false);
+
+    // Process the pending message with the collected responses
+    if (pendingUserMessage) {
+      // Add a message showing what was configured
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `✅ **Configuration Complete**\n\nI've saved your preferences. Proceeding with your request...`,
+          agentType: 'onboarding'
+        }
+      });
+
+      // Continue with the original message processing
+      submitMessage(pendingUserMessage);
+      setPendingUserMessage('');
+    }
+
+    // Clear requirements
+    setFollowUpRequirements(null);
+  };
+
+  const handleFollowUpSkip = () => {
+    // Close dialog and use default settings
+    setShowFollowUpQuestions(false);
+    
+    if (pendingUserMessage) {
+      // Add a message indicating defaults are being used
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `✅ **Using Default Settings**\n\nProceeding with smart defaults for your analysis...`,
+          agentType: 'onboarding'
+        }
+      });
+
+      // Continue with the original message processing using defaults
+      submitMessage(pendingUserMessage);
+      setPendingUserMessage('');
+    }
+
+    // Clear requirements and responses
+    setFollowUpRequirements(null);
+    setQuestionResponses(new Map());
+  };
+
+  const handleModelConfigSubmit = (config: ModelTrainingConfig) => {
+    // Store the configuration and close dialog
+    setModelConfig(config);
+    setShowModelTrainingForm(false);
+
+    // Process the pending message with the configuration
+    if (pendingForecastMessage) {
+      // Add a message showing what was configured
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `✅ **Configuration Complete**\n\nI've saved your preferences. Proceeding with your request...`,
+          agentType: 'onboarding'
+        }
+      });
+
+      // Continue with the original message processing
+      submitMessage(pendingForecastMessage);
+      setPendingForecastMessage('');
+    }
+  };
+
+  const submitMessage = async (userMessage: string) => {
+    const startTime = Date.now();
+    const state = useApp.getState();
+    const context = state.conversationContext;
+
+    // Add user message to history
+    enhancedChatHandler?.conversationHistory.push({ role: "user", content: userMessage });
+
+    // Process chat commands first
+    const command = chatCommandProcessor.processCommand(userMessage);
+    if (command) {
+      await handleChatCommand(command, userMessage);
+      return;
+    }
+
+    // Add thinking step
+    dispatch({ type: 'ADD_THINKING_STEP', payload: '🧠 Analyzing request...' });
+
+    try {
+      const response = await enhancedChatHandler?.generateEnhancedResponse(userMessage, context || {});
+      if (response) {
+        const { response: aiResponse, agentType, reportData, performance, multiAgent, visualization, tokenUsage } = response;
+
+        // Add AI response to messages
+        dispatch({
+          type: 'ADD_MESSAGE',
+          payload: {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: aiResponse,
+            agentType: agentType,
+            reportData: reportData,
+            visualization: visualization,
+            tokenUsage: tokenUsage,
+            canGenerateReport: multiAgent
+          }
+        });
+
+        // Update performance metrics
+        setPerformance(performance);
+
+        // Scroll to bottom
+        scrollToBottom();
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `❌ **Error Processing Request**\n\n${error.message}\n\nPlease try again.`,
+          agentType: 'general'
+        }
+      });
+    } finally {
+      dispatch({ type: 'SET_PROCESSING', payload: false });
+    }
+  };
+
   const isAssistantTyping = state.isProcessing || state.messages[state.messages.length - 1]?.isTyping;
 
   return (
