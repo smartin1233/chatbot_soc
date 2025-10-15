@@ -2353,6 +2353,144 @@ Provide a specific, actionable response based on the actual data and forecast re
     }
   };
 
+  const processCapacityPlanningRequest = async (messageText: string) => {
+    dispatch({ type: 'SET_PROCESSING', payload: true });
+
+    try {
+      // Fetch actual and forecasted data from selected LOB
+      const timeSeriesData = state.selectedLob?.timeSeriesData || [];
+      const actualData = timeSeriesData.filter(d => !d.Forecast || d.Forecast === 0);
+      const forecastData = timeSeriesData.filter(d => d.Forecast && d.Forecast > 0);
+
+      // Get default assumptions
+      const assumptions = state.capacityPlanning.assumptions;
+
+      // Auto-populate date range if not set
+      if (!state.capacityPlanning.dateRange.startDate || !state.capacityPlanning.dateRange.endDate) {
+        // Get last 5 historical weeks + all forecasted weeks
+        const historicalWeeks = actualData.slice(-5).map(d => d.Date || d.date || d.week);
+        const forecastWeeks = forecastData.map(d => d.Date || d.date || d.week);
+        
+        const allWeeks = [...historicalWeeks, ...forecastWeeks].filter(Boolean).sort();
+        if (allWeeks.length > 0) {
+          dispatch({
+            type: 'SET_CAPACITY_DATE_RANGE',
+            payload: {
+              startDate: allWeeks[0],
+              endDate: allWeeks[allWeeks.length - 1]
+            }
+          });
+        }
+      }
+
+      // Show agent thinking message
+      dispatch({
+        type: 'ADD_MESSAGE',
+        payload: {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: '👥 **Capacity Planner Agent Activated**\n\n⏳ Fetching data and calculating required headcount...',
+          isTyping: true,
+          agentType: 'capacityPlanner'
+        }
+      });
+
+      // Create workflow instance and execute capacity planning
+      const sequentialWorkflow = new SequentialAgentWorkflow(state, timeSeriesData);
+      
+      const dateRange = {
+        startDate: state.capacityPlanning.dateRange.startDate || '',
+        endDate: state.capacityPlanning.dateRange.endDate || ''
+      };
+
+      const results = await sequentialWorkflow.executeCapacityPlanningStep(assumptions, dateRange);
+
+      // Update state with results
+      dispatch({ type: 'UPDATE_CAPACITY_RESULTS', payload: results });
+      dispatch({ type: 'TRACK_ACTIVITY', payload: { hasCalculatedCapacity: true } });
+
+      // Build agent response context
+      const agent = ENHANCED_AGENTS['capacityPlanner'];
+      const contextPrompt = `
+CONTEXT:
+Business Unit: ${state.selectedBu?.name || 'N/A'}
+Line of Business: ${state.selectedLob?.name || 'N/A'}
+
+DATA ANALYZED:
+• Actual Data: ${actualData.length} weeks
+• Forecasted Data: ${forecastData.length} weeks
+• Total Weeks: ${results.weeklyHC.length}
+• Date Range: ${new Date(dateRange.startDate).toLocaleDateString()} to ${new Date(dateRange.endDate).toLocaleDateString()}
+
+ASSUMPTIONS APPLIED:
+• AHT: ${assumptions.aht} seconds
+• Occupancy: ${assumptions.occupancy}%
+• Backlog: ${assumptions.backlog}%
+• Volume Mix: ${assumptions.volumeMix}%
+• In-Office Shrinkage: ${assumptions.inOfficeShrinkage}%
+• Out-of-Office Shrinkage: ${assumptions.outOfOfficeShrinkage}%
+• Attrition: ${assumptions.attrition}%
+
+CAPACITY PLANNING RESULTS:
+• Total Required HC: ${results.summary?.totalHC || 0}
+• Average Weekly HC: ${results.summary?.avgHC || 0}
+• Peak HC: ${results.summary?.maxHC?.value || 0} (Week of ${results.summary?.maxHC?.week ? new Date(results.summary.maxHC.week).toLocaleDateString() : 'N/A'})
+• Minimum HC: ${results.summary?.minHC?.value || 0} (Week of ${results.summary?.minHC?.week ? new Date(results.summary.minHC.week).toLocaleDateString() : 'N/A'})
+• Historical Average: ${results.summary?.historicalAvg || 0}
+• Forecasted Average: ${results.summary?.forecastedAvg || 0}
+
+USER REQUEST:
+${messageText}
+
+Provide a comprehensive analysis with data overview, assumptions applied, key results, and insights. Be specific and actionable.`;
+
+      // Call API with capacity planner agent
+      const completion = await enhancedAPIClient.createChatCompletion({
+        messages: [
+          { role: 'system', content: agent.systemPrompt },
+          { role: 'user', content: contextPrompt }
+        ],
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        max_tokens: 2000,
+        useCache: false
+      });
+
+      const response = completion.choices[0].message.content ?? "";
+
+      // Update the thinking message with agent response and interactive component
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: response,
+          isTyping: false,
+          showCapacityPlanning: true,
+          suggestions: [
+            'Export results to CSV',
+            'Modify assumptions and recalculate',
+            'Explain the calculation',
+            'Show detailed breakdown'
+          ],
+          agentType: 'capacityPlanner'
+        }
+      });
+
+    } catch (error: any) {
+      console.error('Capacity planning error:', error);
+      dispatch({
+        type: 'UPDATE_LAST_MESSAGE',
+        payload: {
+          content: `❌ **Error Calculating Capacity**\n\n${error.message}\n\nPlease check your data and try again.`,
+          isTyping: false,
+          suggestions: ['Check data', 'Try again', 'Get help'],
+          agentType: 'capacityPlanner'
+        }
+      });
+    } finally {
+      dispatch({ type: 'SET_PROCESSING', payload: false });
+    }
+  };
+
   // Enhanced submit message handler with follow-up questions and chat commands
   const submitMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
@@ -2435,8 +2573,8 @@ Provide a specific, actionable response based on the actual data and forecast re
           payload: {
             id: crypto.randomUUID(),
             role: 'assistant',
-            content: `📊 **Capacity Planning Request**\n\nI can help you calculate required headcount! However, capacity planning requires forecasted data first.\n\n**Current Status:**\n• Forecasting: ${state.analyzedData.hasForecasting ? '✅ Complete' : '❌ Not completed'}\n• Capacity Planning: ${state.capacityPlanning.enabled ? '✅ Ready' : '⏳ Waiting for forecast'}\n\n**Next Steps:**\n${state.analyzedData.hasForecasting ? '• Scroll down to the **"📊 Step 7: Capacity Planning"** section below\n• Review the default assumptions or customize them\n• Click **"Calculate Required HC"** to get your staffing needs' : '• First, run a forecast analysis to predict future volumes\n• Then capacity planning will unlock automatically'}`,
-            suggestions: state.analyzedData.hasForecasting 
+            content: `📊 **Capacity Planning Request**\n\nI can help you calculate required headcount! However, capacity planning requires forecasted data first.\n\n**Current Status:**\n• Forecasting: ${state.analyzedData?.hasForecasting ? '✅ Complete' : '❌ Not completed'}\n• Capacity Planning: ${state.capacityPlanning.enabled ? '✅ Ready' : '⏳ Waiting for forecast'}\n\n**Next Steps:**\n${state.analyzedData?.hasForecasting ? '• Scroll down to the **"📊 Step 7: Capacity Planning"** section below\n• Review the default assumptions or customize them\n• Click **"Calculate Required HC"** to get your staffing needs' : '• First, run a forecast analysis to predict future volumes\n• Then capacity planning will unlock automatically'}`,
+            suggestions: state.analyzedData?.hasForecasting 
               ? ['Show me the capacity planning section', 'What assumptions can I configure?', 'Explain the HC formula']
               : ['Run forecast analysis', 'Generate predictions', 'Help me get started'],
             agentType: 'onboarding'
