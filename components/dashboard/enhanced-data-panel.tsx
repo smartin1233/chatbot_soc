@@ -339,11 +339,12 @@ export default function EnhancedDataPanel({ className }: { className?: string })
     }
 
     // Generate fallback data for any selected LOB (with or without uploaded data)
-    const recordCount = state.selectedLob.recordCount || 1000;
+    const recordCount = state.selectedLob.recordCount || 52; // default to 52 weeks
     const baseValue = 50 + Math.random() * 100;
     const data = [];
+    const forecastWeeks = 4;
 
-    for (let week = 1; week <= Math.min(52, Math.ceil(recordCount / 100)); week++) {
+    for (let week = 1; week <= Math.min(52, Math.ceil(recordCount / 100)) + forecastWeeks; week++) {
       const seasonalMultiplier = 1 + 0.3 * Math.sin((week / 52) * 2 * Math.PI);
       const trendMultiplier = 1 + (week / 52) * 0.2;
       const randomVariation = 0.8 + Math.random() * 0.4;
@@ -351,11 +352,20 @@ export default function EnhancedDataPanel({ className }: { className?: string })
       const value = Math.round(baseValue * seasonalMultiplier * trendMultiplier * randomVariation);
       const orders = Math.round(value * (0.7 + Math.random() * 0.6));
 
-      data.push({
-        Date: new Date(2024, 0, week * 7),
-        Value: value,
-        Orders: orders,
-      });
+      if (week > Math.min(52, Math.ceil(recordCount / 100))) {
+        data.push({
+          Date: new Date(2024, 0, week * 7),
+          Value: null,
+          Orders: null,
+          Forecast: value,
+        });
+      } else {
+        data.push({
+          Date: new Date(2024, 0, week * 7),
+          Value: value,
+          Orders: orders,
+        });
+      }
     }
 
     // Filter fallback data by selected date range if set
