@@ -4,6 +4,7 @@
 
 import type { Agent, WorkflowStep } from '@/lib/types';
 import { statisticalAnalyzer, insightsGenerator } from '@/lib/statistical-analysis';
+import { CapacityPlanningAgent } from './capacity-planning-agent';
 
 export interface EnhancedOrchestratorInput {
   userMessage: string;
@@ -151,6 +152,17 @@ export class EnhancedAgentOrchestrator {
         completionCriteria: ['goals_defined', 'data_requirements_clear', 'workflow_planned'],
         outputs: ['user_goals', 'data_requirements', 'planned_workflow']
       }
+    ],
+    capacity_planning: [
+      {
+        name: 'Capacity Planning',
+        description: 'Calculate required headcount based on forecast data',
+        requiredAgents: ['capacity_planning'],
+        estimatedDuration: 20000,
+        dependencies: ['Forecast Generation'],
+        completionCriteria: ['headcount_calculated', 'assumptions_justified'],
+        outputs: ['capacity_plan', 'assumptions', 'justification']
+      }
     ]
   };
 
@@ -278,6 +290,23 @@ export class EnhancedAgentOrchestrator {
         quality: 0.91,
         lastActivity: new Date(),
         task: 'Ready for business analysis'
+      },
+      {
+        id: 'capacity-planning-agent',
+        name: 'Capacity Planner',
+        type: 'capacity_planning' as const,
+        capabilities: ['headcount_calculation', 'assumption_generation'],
+        specialization: ['workforce_planning', 'operational_efficiency'],
+        status: 'idle' as const,
+        successRate: 0.93,
+        avgCompletionTime: 20000,
+        errorCount: 0,
+        cpuUsage: 0.1,
+        memoryUsage: 0.05,
+        currentLoad: 0,
+        quality: 0.93,
+        lastActivity: new Date(),
+        task: 'Ready for capacity planning'
       }
     ];
 
@@ -437,6 +466,8 @@ export class EnhancedAgentOrchestrator {
         return this.generateForecastingResponse(context);
       case 'insights':
         return this.generateInsightsResponse(context);
+      case 'capacity_planning':
+        return this.generateCapacityPlanningResponse(context);
       default:
         return this.generateGeneralResponse(context);
     }
@@ -652,36 +683,34 @@ ${tests.map(test => `• **${test}:** ✅ Passed`).join('\n')}
   }
 
   private generateForecastingResponse(context: any): string {
-    const currentValue = Math.floor(Math.random() * 50000) + 25000;
-    const forecastChange = (Math.random() * 30 - 10); // -10% to +20%
-    const forecastValue = Math.floor(currentValue * (1 + forecastChange/100));
+    const forecastWeeks = 4;
+    const weeklyForecasts = [];
+    let currentValue = Math.floor(Math.random() * 50000) + 25000;
+
+    for (let i = 0; i < forecastWeeks; i++) {
+      const forecastChange = (Math.random() * 0.1 - 0.05); // -5% to +5% weekly change
+      currentValue *= (1 + forecastChange);
+      weeklyForecasts.push({
+        week: i + 1,
+        value: Math.floor(currentValue),
+      });
+    }
+
+    const totalForecastValue = weeklyForecasts[forecastWeeks - 1].value;
+    const totalChange = ((totalForecastValue - (Math.floor(Math.random() * 50000) + 25000)) / (Math.floor(Math.random() * 50000) + 25000)) * 100;
 
     return `### 📈 Advanced Forecast Generation Complete
 
-**30-Day Forecast Summary:**
-• **Current Value:** ${currentValue.toLocaleString()}
-• **Forecasted Value:** ${forecastValue.toLocaleString()}
-• **Expected Change:** ${forecastChange > 0 ? '+' : ''}${forecastChange.toFixed(1)}%
+**4-Week Forecast Summary:**
+• **Final Forecasted Value:** ${totalForecastValue.toLocaleString()}
+• **Total Expected Change:** ${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)}%
+
+**Weekly Breakdown:**
+${weeklyForecasts.map(wf => `• **Week ${wf.week}:** ${wf.value.toLocaleString()}`).join('\n')}
 
 **Confidence Intervals (95%):**
-• **Lower Bound:** ${Math.floor(forecastValue * 0.85).toLocaleString()}
-• **Upper Bound:** ${Math.floor(forecastValue * 1.15).toLocaleString()}
-• **Prediction Width:** ±${Math.floor((forecastValue * 0.15)).toLocaleString()}
-
-**Forecast Components:**
-• **Trend Component:** ${forecastChange > 5 ? 'Strong positive' : forecastChange < -5 ? 'Declining' : 'Stable'}
-• **Seasonal Effect:** ${Math.random() > 0.5 ? '12% uplift expected' : '8% seasonal adjustment'}
-• **Cyclical Patterns:** Medium-term cycles incorporated
-
-**Risk Analysis:**
-• **Forecast Confidence:** ${85 + Math.floor(Math.random() * 10)}%
-• **Key Risks:** ${['Market volatility', 'External factors', 'Data changes'][Math.floor(Math.random() * 3)]}
-• **Upside Scenarios:** +${Math.floor(Math.random() * 15) + 10}% under optimistic conditions
-
-**Business Impact:**
-${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity planning' : 
-  forecastChange < -5 ? '⚠️ Decline projected - intervention strategies recommended' :
-  '📊 Stable performance expected - maintain current operations'}
+• **Lower Bound:** ${Math.floor(totalForecastValue * 0.85).toLocaleString()}
+• **Upper Bound:** ${Math.floor(totalForecastValue * 1.15).toLocaleString()}
 
 **Next Steps:** Generate business insights and strategic recommendations.`;
   }
@@ -757,6 +786,38 @@ I'm here to help you navigate your business intelligence and forecasting needs. 
 **Current Status:** ${context.selectedLob?.hasData ? 'Data available for analysis' : 'Waiting for data upload'}
 
 How can I help you achieve your business objectives?`;
+  }
+
+  private async generateCapacityPlanningResponse(context: any): Promise<string> {
+    const agent = new CapacityPlanningAgent();
+    // Mock data for now
+    const planningInput = {
+      historicalData: context.selectedLob?.mockData || [],
+      forecastData: [
+        { week: 1, value: 1000 },
+        { week: 2, value: 1100 },
+        { week: 3, value: 1050 },
+        { week: 4, value: 1200 },
+      ],
+      assumptions: context.assumptions,
+    };
+    const result = await agent.run(planningInput);
+    const headcountStrings = result.headcount.map(
+      (h) => `• **Week ${h.week}:** ${h.required} agents`
+    );
+    return `### 📋 Capacity Plan
+
+**Assumptions:**
+• **Calls per Headcount:** ${result.assumptions.callsPerHeadcount}
+• **Shrinkage:** ${result.assumptions.shrinkage * 100}%
+
+**Justification:**
+${result.justification}
+
+**Required Headcount:**
+${headcountStrings.join('\n')}
+
+**Next Steps:** You can adjust the assumptions and recalculate the plan.`;
   }
 
   private async generateBusinessAnalysis(executionResult: any, context: any): Promise<{
