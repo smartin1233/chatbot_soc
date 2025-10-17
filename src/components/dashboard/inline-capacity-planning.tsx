@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 
 interface InlineCapacityPlanningProps {
   messageId: string;
@@ -120,68 +121,9 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
     }
   };
 
-  // Calculate HC
   const handleCalculate = async () => {
-    try {
-      setIsCalculating(true);
-      dispatch({ type: 'SET_CAPACITY_STATUS', payload: 'calculating' });
-
-      const timeSeriesData = state.selectedLob?.timeSeriesData || [];
-      
-      // Convert week format to ISO dates
-      const startDateISO = weekToISODate(customDateRange.startDate);
-      const endDateISO = weekToISODate(customDateRange.endDate);
-      
-      console.log('🔍 Capacity Planning Debug:');
-      console.log('📊 Total data points:', timeSeriesData.length);
-      console.log('📊 Sample data point:', timeSeriesData[0]);
-      console.log('📊 Data properties:', timeSeriesData[0] ? Object.keys(timeSeriesData[0]) : 'No data');
-      console.log('📅 Week range (input):', customDateRange);
-      console.log('📅 Date range (ISO):', { startDateISO, endDateISO });
-
-      if (!customDateRange.startDate || !customDateRange.endDate) {
-        throw new Error('Please select both start and end weeks.');
-      }
-
-      const response = await fetch('/api/calculate-headcount', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          timeSeriesData,
-          assumptions: localAssumptions,
-          dateRange: {
-            startDate: startDateISO,
-            endDate: endDateISO,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error);
-      }
-
-      const results = await response.json();
-
-      console.log('✅ Capacity planning results:', results);
-
-      dispatch({
-        type: 'UPDATE_CAPACITY_RESULTS',
-        payload: results
-      });
-
-    } catch (error) {
-      console.error('❌ Capacity planning calculation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      dispatch({
-        type: 'SET_CAPACITY_ERRORS',
-        payload: [errorMessage]
-      });
-    } finally {
-      setIsCalculating(false);
-    }
+    const message = `Calculate headcount with the following assumptions: ${JSON.stringify(localAssumptions)}`;
+    dispatch({ type: 'ADD_MESSAGE', payload: { id: crypto.randomUUID(), role: 'user', content: message } });
   };
 
   // Handle recalculate

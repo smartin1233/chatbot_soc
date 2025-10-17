@@ -3,6 +3,8 @@
  */
 
 import type { Agent, WorkflowStep } from '@/lib/types';
+import { openaiClient } from '@/lib/api-client';
+import { statisticalAnalyzer, insightsGenerator } from '@/lib/statistical-analysis';
 
 export interface EnhancedOrchestratorInput {
   userMessage: string;
@@ -40,7 +42,7 @@ export interface AgentResponse {
 }
 
 export interface EnhancedAgent extends Agent {
-  type: 'onboarding' | 'eda' | 'preprocessing' | 'modeling' | 'validation' | 'forecasting' | 'insights' | 'general' | 'headcount';
+  type: 'onboarding' | 'eda' | 'preprocessing' | 'modeling' | 'validation' | 'forecasting' | 'insights' | 'general';
   capabilities: string[];
   specialization: string[];
   currentLoad: number;
@@ -163,11 +165,11 @@ export class EnhancedAgentOrchestrator {
         outputs: ['user_goals', 'data_requirements', 'planned_workflow']
       }
     ],
-    headcount_calculation: [
+    capacity_planning: [
       {
-        name: 'Headcount Calculation',
+        name: 'Capacity Planning',
         description: 'Calculate and project staffing needs',
-        requiredAgents: ['headcount'],
+        requiredAgents: ['insights'],
         estimatedDuration: 20000,
         dependencies: [],
         completionCriteria: ['headcount_calculated', 'projections_generated'],
@@ -288,8 +290,8 @@ export class EnhancedAgentOrchestrator {
         id: 'insights-agent',
         name: 'Business Analyst',
         type: 'insights' as const,
-        capabilities: ['business_intelligence', 'strategic_analysis', 'recommendation_generation'],
-        specialization: ['market_analysis', 'risk_assessment', 'opportunity_identification'],
+        capabilities: ['business_intelligence', 'strategic_analysis', 'recommendation_generation', 'capacity_planning'],
+        specialization: ['market_analysis', 'risk_assessment', 'opportunity_identification', 'workforce_planning'],
         status: 'idle' as const,
         successRate: 0.91,
         avgCompletionTime: 45000,
@@ -299,24 +301,7 @@ export class EnhancedAgentOrchestrator {
         currentLoad: 0,
         quality: 0.91,
         lastActivity: new Date(),
-        task: 'Ready for business analysis'
-      },
-      {
-        id: 'headcount-agent',
-        name: 'Headcount Calculator',
-        type: 'headcount' as const,
-        capabilities: ['headcount_calculation', 'staffing_projection', 'cost_analysis'],
-        specialization: ['workforce_planning', 'financial_modeling', 'operational_efficiency'],
-        status: 'idle' as const,
-        successRate: 0.98,
-        avgCompletionTime: 20000,
-        errorCount: 0,
-        cpuUsage: 0.1,
-        memoryUsage: 0.05,
-        currentLoad: 0,
-        quality: 0.98,
-        lastActivity: new Date(),
-        task: 'Ready for headcount calculation'
+        task: 'Ready for business analysis and capacity planning'
       }
     ];
 
@@ -378,11 +363,9 @@ export class EnhancedAgentOrchestrator {
     else if (/(quick|summary|overview|insights|analyze)/i.test(lowerMessage)) {
       selectedPhase = 'quick_analysis';
       reasoning = 'User requested quick analysis and insights';
-    }
-    // Headcount calculation
-    else if (/(headcount|hc|staffing)/i.test(lowerMessage)) {
-      selectedPhase = 'headcount_calculation';
-      reasoning = 'User requested headcount calculation';
+    } else if (/(headcount|hc|staffing|capacity)/i.test(lowerMessage)) {
+      selectedPhase = 'capacity_planning';
+      reasoning = 'User requested capacity planning';
     }
 
     const phaseConfig = this.workflowPhases[selectedPhase] || this.workflowPhases['quick_analysis'];
@@ -481,63 +464,9 @@ export class EnhancedAgentOrchestrator {
         return this.generateForecastingResponse(context);
       case 'insights':
         return this.generateInsightsResponse(context);
-      case 'headcount':
-        return this.generateHeadcountResponse(context);
       default:
         return this.generateGeneralResponse(context);
     }
-  }
-
-  private async generateHeadcountResponse(context: any): Promise<string> {
-    const { selectedLob } = context;
-
-    if (!selectedLob?.timeSeriesData) {
-      return 'No time series data available to calculate headcount.';
-    }
-
-    const assumptions = {
-      aht: 50,
-      occupancy: 75,
-      backlog: 25,
-      volumeMix: 30,
-      inOfficeShrinkage: 10,
-      outOfOfficeShrinkage: 20,
-      attrition: 0.7,
-    };
-
-    const response = await fetch('/api/calculate-headcount', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        timeSeriesData: selectedLob.timeSeriesData,
-        assumptions,
-        dateRange: {
-          startDate: selectedLob.timeSeriesData[0].Date,
-          endDate: selectedLob.timeSeriesData[selectedLob.timeSeriesData.length - 1].Date,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      return `Error calculating headcount: ${error.error}`;
-    }
-
-    const results = await response.json();
-
-    return `### 👥 Headcount & Staffing Analysis
-
-**Summary:**
-* **Total Required HC:** ${results.summary.totalHC}
-* **Average Weekly HC:** ${results.summary.avgHC}
-* **Min/Max Weekly HC:** ${results.summary.minHC.value} / ${results.summary.maxHC.value}
-
-**Recommendations:**
-* **Recruiting:** Plan for an average of ${results.summary.avgHC} agents per week.
-* **Budgeting:** Allocate resources based on the projected headcount needs.
-* **Training:** Prepare for onboarding new hires based on the calculated demand.`;
   }
 
   private generateOnboardingResponse(context: any): string {
@@ -779,15 +708,20 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 **Next Steps:** Generate business insights and strategic recommendations.`;
   }
 
-  private generateInsightsResponse(context: any): string {
+  private async generateInsightsResponse(context: any): Promise<string> {
+    const { userMessage } = context;
+    if (/(headcount|hc|staffing|capacity)/i.test(userMessage)) {
+      return this.generateCapacityPlanningResponse(context);
+    }
+
     const insights = [
       'Market share expansion opportunity identified',
-      'Seasonal demand patterns optimizable', 
+      'Seasonal demand patterns optimizable',
       'Cost efficiency improvements possible',
       'Revenue stream diversification potential',
       'Customer retention enhancement opportunity'
     ];
-    
+
     const selectedInsight = insights[Math.floor(Math.random() * insights.length)];
     const impact = Math.floor(Math.random() * 20) + 10;
 
@@ -834,6 +768,58 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 • Agile adjustment mechanisms in place
 
 **Next Steps:** Implement recommendations with regular progress reviews.`;
+  }
+
+  private async generateCapacityPlanningResponse(context: any): Promise<string> {
+    const { selectedLob, userMessage } = context;
+
+    if (!selectedLob?.timeSeriesData) {
+      return 'No time series data available to calculate headcount.';
+    }
+
+    let assumptions = {};
+    try {
+      const assumptionsString = userMessage.match(/{.*}/)?.[0];
+      if (assumptionsString) {
+        assumptions = JSON.parse(assumptionsString);
+      }
+    } catch (e) {
+      // ignore parsing errors
+    }
+
+    const response = await fetch('/api/calculate-headcount', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        timeSeriesData: selectedLob.timeSeriesData,
+        assumptions,
+        dateRange: {
+          startDate: selectedLob.timeSeriesData[0].Date,
+          endDate: selectedLob.timeSeriesData[selectedLob.timeSeriesData.length - 1].Date,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return `Error calculating headcount: ${error.error}`;
+    }
+
+    const results = await response.json();
+
+    return `### 👥 Headcount & Staffing Analysis
+
+**Summary:**
+* **Total Required HC:** ${results.summary.totalHC}
+* **Average Weekly HC:** ${results.summary.avgHC}
+* **Min/Max Weekly HC:** ${results.summary.minHC.value} / ${results.summary.maxHC.value}
+
+**Recommendations:**
+* **Recruiting:** Plan for an average of ${results.summary.avgHC} agents per week.
+* **Budgeting:** Allocate resources based on the projected headcount needs.
+* **Training:** Prepare for onboarding new hires based on the calculated demand.`;
   }
 
   private generateGeneralResponse(context: any): string {
