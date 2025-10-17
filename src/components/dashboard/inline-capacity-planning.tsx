@@ -121,9 +121,76 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
     }
   };
 
+  // Calculate HC
   const handleCalculate = async () => {
-    const message = `Calculate headcount with the following assumptions: ${JSON.stringify(localAssumptions)}`;
-    dispatch({ type: 'ADD_MESSAGE', payload: { id: crypto.randomUUID(), role: 'user', content: message } });
+    try {
+      setIsCalculating(true);
+      dispatch({ type: 'SET_CAPACITY_STATUS', payload: 'calculating' });
+
+      const timeSeriesData = state.selectedLob?.timeSeriesData || [];
+
+      // Convert week format to ISO dates
+      const startDateISO = weekToISODate(customDateRange.startDate);
+      const endDateISO = weekToISODate(customDateRange.endDate);
+
+      console.log('🔍 Capacity Planning Debug:');
+      console.log('📊 Total data points:', timeSeriesData.length);
+      console.log('📊 Sample data point:', timeSeriesData[0]);
+      console.log('📊 Data properties:', timeSeriesData[0] ? Object.keys(timeSeriesData[0]) : 'No data');
+      console.log('📅 Week range (input):', customDateRange);
+      console.log('📅 Date range (ISO):', { startDateISO, endDateISO });
+
+      if (!customDateRange.startDate || !customDateRange.endDate) {
+        throw new Error('Please select both start and end weeks.');
+      }
+
+      const workflow = new SequentialAgentWorkflow(
+        { selectedBu: state.selectedBu, selectedLob: state.selectedLob },
+        timeSeriesData
+      );
+
+      // Separate actual and forecasted data
+      const actualData = timeSeriesData.filter(d => !d.Forecast || d.Forecast === 0);
+      const forecastedData = timeSeriesData.filter(d => d.Forecast && d.Forecast > 0);
+
+      console.log('📊 Actual data points:', actualData.length, 'Sample:', actualData[0]);
+      console.log('📈 Forecasted data points:', forecastedData.length, 'Sample:', forecastedData[0]);
+
+      workflow['currentState'].forecastResults = {
+        forecastPoints: forecastedData.map(d => ({
+          date: new Date(d.Date),
+          forecast: d.Forecast,
+          is_future: true
+        }))
+      };
+      workflow['currentState'].processedData = timeSeriesData;
+
+      console.log('🚀 Starting capacity planning calculation...');
+      const results = await workflow.executeCapacityPlanningStep(
+        localAssumptions,
+        {
+          startDate: startDateISO,
+          endDate: endDateISO
+        }
+      );
+
+      console.log('✅ Capacity planning results:', results);
+
+      dispatch({
+        type: 'UPDATE_CAPACITY_RESULTS',
+        payload: results
+      });
+
+    } catch (error) {
+      console.error('❌ Capacity planning calculation failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      dispatch({
+        type: 'SET_CAPACITY_ERRORS',
+        payload: [errorMessage]
+      });
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   // Handle recalculate

@@ -2793,6 +2793,17 @@ Would you like to try again with different settings?`,
       const { response: responseText, agentType, reportData, performance: perfMetrics, multiAgent, tokenUsage, visualization: resultVisualization } = result;
       setPerformance(perfMetrics);
 
+      // Check for suggested assumptions and dispatch them
+      const assumptionsMatch = responseText.match(/\[SUGGESTED_ASSUMPTIONS\]([\s\S]*?)\[\/SUGGESTED_ASSUMPTIONS\]/);
+      if (assumptionsMatch) {
+        try {
+          const suggestedAssumptions = JSON.parse(assumptionsMatch[1].trim());
+          dispatch({ type: 'SET_CAPACITY_ASSUMPTIONS', payload: suggestedAssumptions });
+        } catch (e) {
+          console.error('Failed to parse suggested assumptions:', e);
+        }
+      }
+
       dispatch({ type: 'SET_PROCESSING', payload: false });
 
       // Enhanced suggestion parsing

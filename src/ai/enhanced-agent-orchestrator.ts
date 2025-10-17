@@ -290,8 +290,8 @@ export class EnhancedAgentOrchestrator {
         id: 'insights-agent',
         name: 'Business Analyst',
         type: 'insights' as const,
-        capabilities: ['business_intelligence', 'strategic_analysis', 'recommendation_generation', 'capacity_planning'],
-        specialization: ['market_analysis', 'risk_assessment', 'opportunity_identification', 'workforce_planning'],
+        capabilities: ['business_intelligence', 'strategic_analysis', 'recommendation_generation'],
+        specialization: ['market_analysis', 'risk_assessment', 'opportunity_identification'],
         status: 'idle' as const,
         successRate: 0.91,
         avgCompletionTime: 45000,
@@ -301,7 +301,15 @@ export class EnhancedAgentOrchestrator {
         currentLoad: 0,
         quality: 0.91,
         lastActivity: new Date(),
-        task: 'Ready for business analysis and capacity planning'
+        task: 'Ready for business analysis and capacity planning',
+        systemPrompt: `You are a business analyst who translates technical results into business actions. You also have expertise in capacity planning.
+
+When asked to calculate headcount, you must use the following formula:
+Required HC = (Volume * VolumeMix% * AHT) / (3600 * Occupancy% * (1 - InShrinkage%) * (1 - OutShrinkage%)) * (1 + Backlog%)
+
+When asked to explain the headcount calculation, you must explain the formula above and what each component means.
+
+When asked for insights, you should analyze the forecast in a business context, compare forecast vs actual trends, identify business opportunities and risks, provide specific, actionable decisions, and answer what-if scenarios with data-backed responses.`
       }
     ];
 
@@ -423,7 +431,7 @@ export class EnhancedAgentOrchestrator {
         agent.lastActivity = new Date();
         
         // Execute agent-specific logic
-        const agentResult = await this.executeAgentTask(agent, context, sessionId);
+        const agentResult = await this.executeAgentTask(agent, context, sessionId, (this as any).dispatch);
         
         // Update step status
         step.status = 'completed';
@@ -447,7 +455,7 @@ export class EnhancedAgentOrchestrator {
     };
   }
 
-  private async executeAgentTask(agent: EnhancedAgent, context: any, sessionId: string): Promise<string> {
+  private async executeAgentTask(agent: EnhancedAgent, context: any, sessionId: string, dispatch: any): Promise<string> {
     // Generate agent-specific responses based on type and capabilities
     switch (agent.type) {
       case 'onboarding':
@@ -463,7 +471,7 @@ export class EnhancedAgentOrchestrator {
       case 'forecasting':
         return this.generateForecastingResponse(context);
       case 'insights':
-        return this.generateInsightsResponse(context);
+        return this.generateInsightsResponse(context, dispatch);
       default:
         return this.generateGeneralResponse(context);
     }
@@ -708,10 +716,10 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 **Next Steps:** Generate business insights and strategic recommendations.`;
   }
 
-  private async generateInsightsResponse(context: any): Promise<string> {
+  private async generateInsightsResponse(context: any, dispatch: any): Promise<string> {
     const { userMessage } = context;
     if (/(headcount|hc|staffing|capacity)/i.test(userMessage)) {
-      return this.generateCapacityPlanningResponse(context);
+      return this.generateCapacityPlanningResponse(context, dispatch);
     }
 
     const insights = [
@@ -770,18 +778,20 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 **Next Steps:** Implement recommendations with regular progress reviews.`;
   }
 
-  private async generateCapacityPlanningResponse(context: any): Promise<string> {
+  private async generateCapacityPlanningResponse(context: any, dispatch: any): Promise<string> {
     const { selectedLob, userMessage } = context;
 
     if (!selectedLob?.timeSeriesData) {
       return 'No time series data available to calculate headcount.';
     }
 
-    let assumptions = {};
+    let assumptions = this.generateDynamicAssumptions(selectedLob.timeSeriesData);
     try {
       const assumptionsString = userMessage.match(/{.*}/)?.[0];
       if (assumptionsString) {
         assumptions = JSON.parse(assumptionsString);
+      } else {
+        dispatch({ type: 'SET_CAPACITY_ASSUMPTIONS', payload: assumptions });
       }
     } catch (e) {
       // ignore parsing errors
@@ -811,6 +821,10 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 
     return `### 👥 Headcount & Staffing Analysis
 
+[SUGGESTED_ASSUMPTIONS]
+${JSON.stringify(assumptions)}
+[/SUGGESTED_ASSUMPTIONS]
+
 **Summary:**
 * **Total Required HC:** ${results.summary.totalHC}
 * **Average Weekly HC:** ${results.summary.avgHC}
@@ -820,6 +834,22 @@ ${forecastChange > 10 ? '🎯 Strong growth expected - consider capacity plannin
 * **Recruiting:** Plan for an average of ${results.summary.avgHC} agents per week.
 * **Budgeting:** Allocate resources based on the projected headcount needs.
 * **Training:** Prepare for onboarding new hires based on the calculated demand.`;
+  }
+
+  private generateDynamicAssumptions(timeSeriesData: any[]): any {
+    const values = timeSeriesData.map(d => d.Value);
+    const avg = values.reduce((a, b) => a + b) / values.length;
+    const max = Math.max(...values);
+
+    return {
+      aht: Math.round(avg / 100),
+      occupancy: 75 + Math.round(Math.random() * 10),
+      backlog: 10 + Math.round(Math.random() * 10),
+      attrition: 0.5 + Math.random(),
+      volumeMix: 20 + Math.round(Math.random() * 10),
+      inOfficeShrinkage: 10 + Math.round(Math.random() * 5),
+      outOfOfficeShrinkage: 15 + Math.round(Math.random() * 5),
+    };
   }
 
   private generateGeneralResponse(context: any): string {
