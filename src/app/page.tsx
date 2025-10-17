@@ -36,9 +36,9 @@ export default function Home() {
   // Show loading state briefly
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-background via-background to-muted/20">
         <div className="text-center animate-fade-in">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary/30 border-t-primary mx-auto mb-6 animate-pulse-glow"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary/30 border-t-primary mx-auto mb-6"></div>
           <p className="text-muted-foreground text-lg font-medium">Loading your dashboard...</p>
           <div className="mt-2 flex justify-center space-x-1">
             <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
@@ -58,7 +58,7 @@ export default function Home() {
   // Show main dashboard if authenticated
   return (
     <AppProvider>
-      <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 text-foreground font-body animate-fade-in">
+      <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground font-body animate-fade-in">
         <Header onLogout={handleLogout} />
         <MainContent />
       </div>

@@ -139,7 +139,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </Card>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-sm text-gray-600 dark:text-gray-400">
+        <div className="text-center mt-8 text-sm text-muted-foreground">
           {/* <p>© 2025 Forecasting Dashboard. All rights reserved.</p> */}
         </div>
       </div>

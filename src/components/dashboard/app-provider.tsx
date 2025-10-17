@@ -95,6 +95,7 @@ type AppState = {
     hasCalculatedCapacity: boolean;
     lastAction: string;
     lastAgentType?: string;
+    colorTheme?: string;
   };
 };
 
@@ -149,7 +150,8 @@ type Action =
   | { type: 'UPDATE_CAPACITY_RESULTS'; payload: AppState['capacityPlanning']['results'] }
   | { type: 'SET_CAPACITY_STATUS'; payload: 'idle' | 'calculating' | 'completed' | 'error' }
   | { type: 'SET_CAPACITY_ERRORS'; payload: string[] }
-  | { type: 'ENABLE_CAPACITY_PLANNING' };
+  | { type: 'ENABLE_CAPACITY_PLANNING' }
+  | { type: 'SET_COLOR_THEME'; payload: string };
 
 
 const initialState: AppState = {
@@ -234,17 +236,9 @@ const initialState: AppState = {
     hasViewedInsights: false,
     hasCalculatedCapacity: false,
     lastAction: 'initial',
-    lastAgentType: undefined
+    lastAgentType: undefined,
+    colorTheme: 'default'
   }
-};
-
-const getRandomColor = () => {
-  const letters = '0123456789ABCDEF';
-  let color = '#';
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
 };
 
 function appReducer(state: AppState, action: Action): AppState {
@@ -581,7 +575,6 @@ function appReducer(state: AppState, action: Action): AppState {
           const lastHistoricalIndex = sortedHistorical.length - 1;
           const startIndex = Math.max(0, lastHistoricalIndex - 4); // Last 5 weeks (index 0-based)
           startDate = new Date(sortedHistorical[startIndex].Date).toISOString().split('T')[0];
-          console.log('📅 Capacity planning start date (last 5 historical):', startDate);
         }
         
         if (forecastedData.length > 0) {
@@ -590,7 +583,6 @@ function appReducer(state: AppState, action: Action): AppState {
             new Date(a.Date).getTime() - new Date(b.Date).getTime()
           );
           endDate = new Date(sortedForecast[sortedForecast.length - 1].Date).toISOString().split('T')[0];
-          console.log('📅 Capacity planning end date (last forecast):', endDate);
         }
         
         capacityPlanningUpdate = {
@@ -853,7 +845,14 @@ function appReducer(state: AppState, action: Action): AppState {
         }
       };
     }
-
+    case 'SET_COLOR_THEME':
+      return {
+        ...state,
+        userActivity: {
+          ...state.userActivity,
+          colorTheme: action.payload
+        }
+      };
     default:
       return state;
   }
@@ -981,3 +980,4 @@ export function useApp() {
   }
   return context;
 }
+

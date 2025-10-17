@@ -11,7 +11,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Settings, User, Bot, BarChart, Sun, Moon, FileText, Printer, UploadCloud, Key, TrendingUp, LogOut } from 'lucide-react';
+import { Settings, User, Bot, BarChart, FileText, Printer, UploadCloud, Key, TrendingUp, LogOut, Palette } from 'lucide-react';
+import Link from 'next/link';
+import { ThemeToggle } from './theme-toggle';
 import placeholderImages from '@/lib/placeholder-images.json';
 import { useApp } from './app-provider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -22,34 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import APISettingsDialog from './api-settings-dialog';
 
-const ThemeToggle = () => {
-    const [theme, setTheme] = React.useState('light');
 
-    React.useEffect(() => {
-        const isDark = document.documentElement.classList.contains('dark');
-        setTheme(isDark ? 'dark' : 'light');
-    }, []);
-
-    const toggleTheme = () => {
-        if (theme === 'light') {
-            document.documentElement.classList.add('dark');
-            setTheme('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-            setTheme('light');
-        }
-    };
-
-    return (
-        <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20"
-            title="Toggle Theme"
-        >
-            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-        </button>
-    );
-};
 
 
 const SettingsDropdown = ({ onGenerateReport, isReportGenerating }: { onGenerateReport: () => void, isReportGenerating: boolean }) => {
@@ -163,7 +138,7 @@ export default function Header({ onLogout }: HeaderProps) {
 
 
     return (
-        <header className="h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white flex items-center justify-between px-6 shrink-0 print:hidden shadow-lg backdrop-blur-sm border-b border-white/10">
+        <header className="h-16 bg-gradient-to-r from-primary via-primary/90 to-primary/80 text-primary-foreground flex items-center justify-between px-6 shrink-0 print:hidden shadow-lg backdrop-blur-sm border-b border-white/10">
             <div className="flex items-center space-x-4">
                 <h1 className="text-xl font-bold">Assistant </h1>
                 {!state.isOnboarding && (
@@ -175,7 +150,25 @@ export default function Header({ onLogout }: HeaderProps) {
             </div>
 
             <div className="flex items-center space-x-4">
-                <ThemeToggle />
+                {/* Add a simple button to toggle light/dark theme */}
+                <button
+                  onClick={() => {
+                    const html = document.documentElement;
+                    if (html.classList.contains('dark')) {
+                      html.classList.remove('dark');
+                      html.setAttribute('data-theme', 'light');
+                      localStorage.setItem('themeMode', 'light');
+                    } else {
+                      html.classList.add('dark');
+                      html.setAttribute('data-theme', 'dark');
+                      localStorage.setItem('themeMode', 'dark');
+                    }
+                  }}
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20"
+                  title="Toggle Light/Dark Theme"
+                >
+                  <Palette className="w-5 h-5" />
+                </button>
                 <button
                     onClick={showAgentMonitor}
                     className="p-2 rounded-lg bg-white/10 hover:bg-white/20"
