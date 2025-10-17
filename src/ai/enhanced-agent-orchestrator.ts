@@ -3,8 +3,6 @@
  */
 
 import type { Agent, WorkflowStep } from '@/lib/types';
-import { openaiClient } from '@/lib/api-client';
-import { statisticalAnalyzer, insightsGenerator } from '@/lib/statistical-analysis';
 
 export interface EnhancedOrchestratorInput {
   userMessage: string;
@@ -42,7 +40,7 @@ export interface AgentResponse {
 }
 
 export interface EnhancedAgent extends Agent {
-  type: 'onboarding' | 'eda' | 'preprocessing' | 'modeling' | 'validation' | 'forecasting' | 'insights' | 'general';
+  type: 'onboarding' | 'eda' | 'preprocessing' | 'modeling' | 'validation' | 'forecasting' | 'insights' | 'general' | 'headcount';
   capabilities: string[];
   specialization: string[];
   currentLoad: number;
@@ -163,6 +161,17 @@ export class EnhancedAgentOrchestrator {
         dependencies: [],
         completionCriteria: ['goals_defined', 'data_requirements_clear', 'workflow_planned'],
         outputs: ['user_goals', 'data_requirements', 'planned_workflow']
+      }
+    ],
+    headcount_calculation: [
+      {
+        name: 'Headcount Calculation',
+        description: 'Calculate and project staffing needs',
+        requiredAgents: ['headcount'],
+        estimatedDuration: 20000,
+        dependencies: [],
+        completionCriteria: ['headcount_calculated', 'projections_generated'],
+        outputs: ['headcount_report', 'staffing_projections']
       }
     ]
   };
@@ -291,6 +300,23 @@ export class EnhancedAgentOrchestrator {
         quality: 0.91,
         lastActivity: new Date(),
         task: 'Ready for business analysis'
+      },
+      {
+        id: 'headcount-agent',
+        name: 'Headcount Calculator',
+        type: 'headcount' as const,
+        capabilities: ['headcount_calculation', 'staffing_projection', 'cost_analysis'],
+        specialization: ['workforce_planning', 'financial_modeling', 'operational_efficiency'],
+        status: 'idle' as const,
+        successRate: 0.98,
+        avgCompletionTime: 20000,
+        errorCount: 0,
+        cpuUsage: 0.1,
+        memoryUsage: 0.05,
+        currentLoad: 0,
+        quality: 0.98,
+        lastActivity: new Date(),
+        task: 'Ready for headcount calculation'
       }
     ];
 
@@ -352,6 +378,11 @@ export class EnhancedAgentOrchestrator {
     else if (/(quick|summary|overview|insights|analyze)/i.test(lowerMessage)) {
       selectedPhase = 'quick_analysis';
       reasoning = 'User requested quick analysis and insights';
+    }
+    // Headcount calculation
+    else if (/(headcount|hc|staffing)/i.test(lowerMessage)) {
+      selectedPhase = 'headcount_calculation';
+      reasoning = 'User requested headcount calculation';
     }
 
     const phaseConfig = this.workflowPhases[selectedPhase] || this.workflowPhases['quick_analysis'];
@@ -450,9 +481,63 @@ export class EnhancedAgentOrchestrator {
         return this.generateForecastingResponse(context);
       case 'insights':
         return this.generateInsightsResponse(context);
+      case 'headcount':
+        return this.generateHeadcountResponse(context);
       default:
         return this.generateGeneralResponse(context);
     }
+  }
+
+  private async generateHeadcountResponse(context: any): Promise<string> {
+    const { selectedLob } = context;
+
+    if (!selectedLob?.timeSeriesData) {
+      return 'No time series data available to calculate headcount.';
+    }
+
+    const assumptions = {
+      aht: 50,
+      occupancy: 75,
+      backlog: 25,
+      volumeMix: 30,
+      inOfficeShrinkage: 10,
+      outOfOfficeShrinkage: 20,
+      attrition: 0.7,
+    };
+
+    const response = await fetch('/api/calculate-headcount', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        timeSeriesData: selectedLob.timeSeriesData,
+        assumptions,
+        dateRange: {
+          startDate: selectedLob.timeSeriesData[0].Date,
+          endDate: selectedLob.timeSeriesData[selectedLob.timeSeriesData.length - 1].Date,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return `Error calculating headcount: ${error.error}`;
+    }
+
+    const results = await response.json();
+
+    return `### 👥 Headcount & Staffing Analysis
+
+**Summary:**
+* **Total Required HC:** ${results.summary.totalHC}
+* **Average Weekly HC:** ${results.summary.avgHC}
+* **Min/Max Weekly HC:** ${results.summary.minHC.value} / ${results.summary.maxHC.value}
+
+**Recommendations:**
+* **Recruiting:** Plan for an average of ${results.summary.avgHC} agents per week.
+* **Budgeting:** Allocate resources based on the projected headcount needs.
+* **Training:** Prepare for onboarding new hires based on the calculated demand.`;
   }
 
   private generateOnboardingResponse(context: any): string {

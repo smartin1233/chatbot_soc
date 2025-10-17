@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { SequentialAgentWorkflow } from '@/lib/sequential-workflow';
 
 interface InlineCapacityPlanningProps {
   messageId: string;
@@ -144,35 +143,27 @@ export function InlineCapacityPlanning({ messageId }: InlineCapacityPlanningProp
         throw new Error('Please select both start and end weeks.');
       }
 
-      const workflow = new SequentialAgentWorkflow(
-        { selectedBu: state.selectedBu, selectedLob: state.selectedLob },
-        timeSeriesData
-      );
+      const response = await fetch('/api/calculate-headcount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          timeSeriesData,
+          assumptions: localAssumptions,
+          dateRange: {
+            startDate: startDateISO,
+            endDate: endDateISO,
+          },
+        }),
+      });
 
-      // Separate actual and forecasted data
-      const actualData = timeSeriesData.filter(d => !d.Forecast || d.Forecast === 0);
-      const forecastedData = timeSeriesData.filter(d => d.Forecast && d.Forecast > 0);
-      
-      console.log('📊 Actual data points:', actualData.length, 'Sample:', actualData[0]);
-      console.log('📈 Forecasted data points:', forecastedData.length, 'Sample:', forecastedData[0]);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error);
+      }
 
-      workflow['currentState'].forecastResults = {
-        forecastPoints: forecastedData.map(d => ({
-          date: new Date(d.Date),
-          forecast: d.Forecast,
-          is_future: true
-        }))
-      };
-      workflow['currentState'].processedData = timeSeriesData;
-
-      console.log('🚀 Starting capacity planning calculation...');
-      const results = await workflow.executeCapacityPlanningStep(
-        localAssumptions,
-        {
-          startDate: startDateISO,
-          endDate: endDateISO
-        }
-      );
+      const results = await response.json();
 
       console.log('✅ Capacity planning results:', results);
 
