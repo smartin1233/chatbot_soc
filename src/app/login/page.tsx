@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { AppProvider } from '@/components/dashboard/app-provider';
 import Header from '@/components/dashboard/header';
 import MainContent from '@/components/dashboard/main-content';
-import InteractiveLogin from '@/components/auth/interactive-login';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,11 +19,14 @@ export default function Home() {
   }, []);
 
   const handleLogin = (username: string, password: string) => {
+    console.log('Attempting to log in with:', username, password);
     // Authentication check
     if (username === 'martin@demo.com' && password === 'demo') {
       setIsAuthenticated(true);
       localStorage.setItem('isAuthenticated', 'true');
     }
+    console.log('Current authentication state:', isAuthenticated);
+    console.log('Is loading:', isLoading);
   };
 
   const handleLogout = () => {
@@ -50,22 +52,21 @@ export default function Home() {
     );
   }
 
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
+  // Redirect to /main page if authenticated
+  if (isAuthenticated) {
+    return (
+      <AppProvider>
+        <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground font-body animate-fade-in">
+          <Header onLogout={handleLogout} />
+          <MainContent />
+        </div>
+      </AppProvider>
+    );
+  } else {
     // Redirect to /main page instead of showing login
     if (typeof window !== 'undefined') {
       window.location.href = '/main';
     }
     return null;
   }
-
-  // Show main dashboard if authenticated
-  return (
-    <AppProvider>
-      <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-muted/20 text-foreground font-body animate-fade-in">
-        <Header onLogout={handleLogout} />
-        <MainContent />
-      </div>
-    </AppProvider>
-  );
 }
