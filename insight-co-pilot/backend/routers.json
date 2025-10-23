@@ -1,0 +1,1 @@
+{"routers":{"settings":{"name":"settings","version":"2025-10-09T13:29:45.972000Z","disableAuth":true},"business_data":{"name":"business_data","version":"2025-10-09T11:56:34","disableAuth":true},"data_upload":{"name":"data_upload","version":"2025-10-09T12:01:45","disableAuth":true},"chat":{"name":"chat","version":"2025-10-09T13:52:18.740000Z","disableAuth":true}}}
