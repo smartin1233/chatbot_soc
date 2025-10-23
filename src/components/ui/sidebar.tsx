@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
@@ -19,11 +17,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state"
+const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH_ICON = "3.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -34,6 +32,10 @@ type SidebarContext = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
+  isFloating: boolean
+  setIsFloating: (isFloating: boolean) => void
+  isPinned: boolean // Added pinned state
+  setIsPinned: (isPinned: boolean) => void // Added setter for pinned state
 }
 
 const SidebarContext = React.createContext<SidebarContext | null>(null)
@@ -43,7 +45,6 @@ function useSidebar() {
   if (!context) {
     throw new Error("useSidebar must be used within a SidebarProvider.")
   }
-
   return context
 }
 
@@ -57,7 +58,7 @@ const SidebarProvider = React.forwardRef<
 >(
   (
     {
-      defaultOpen = true,
+      defaultOpen = false,
       open: openProp,
       onOpenChange: setOpenProp,
       className,
@@ -69,9 +70,9 @@ const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile()
     const [openMobile, setOpenMobile] = React.useState(false)
+    const [isFloating, setIsFloating] = React.useState(false)
+    const [isPinned, setIsPinned] = React.useState(false) // Added pinned state
 
-    // This is the internal state of the sidebar.
-    // We use openProp and setOpenProp for control from outside the component.
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
     const setOpen = React.useCallback(
@@ -82,21 +83,21 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-
-        // This sets the cookie to keep the sidebar state.
         document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
       },
       [setOpenProp, open]
     )
 
-    // Helper to toggle the sidebar.
+    // Modified toggleSidebar to respect isPinned
     const toggleSidebar = React.useCallback(() => {
+      if (isPinned && !isMobile && open) {
+        return // Prevent collapsing when pinned on desktop
+      }
       return isMobile
         ? setOpenMobile((open) => !open)
         : setOpen((open) => !open)
-    }, [isMobile, setOpen, setOpenMobile])
+    }, [isMobile, setOpen, setOpenMobile, isPinned, open])
 
-    // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
       const handleKeyDown = (event: KeyboardEvent) => {
         if (
@@ -107,13 +108,10 @@ const SidebarProvider = React.forwardRef<
           toggleSidebar()
         }
       }
-
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
     }, [toggleSidebar])
 
-    // We add a state so that we can do data-state="expanded" or "collapsed".
-    // This makes it easier to style the sidebar with Tailwind classes.
     const state = open ? "expanded" : "collapsed"
 
     const contextValue = React.useMemo<SidebarContext>(
@@ -125,8 +123,12 @@ const SidebarProvider = React.forwardRef<
         openMobile,
         setOpenMobile,
         toggleSidebar,
+        isFloating,
+        setIsFloating,
+        isPinned, // Added to context
+        setIsPinned, // Added to context
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, isFloating, setIsFloating, isPinned, setIsPinned]
     )
 
     return (
@@ -175,7 +177,7 @@ const Sidebar = React.forwardRef<
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const { isMobile, state, openMobile, setOpenMobile, isFloating, setIsFloating } = useSidebar()
 
     if (collapsible === "none") {
       return (
@@ -217,37 +219,46 @@ const Sidebar = React.forwardRef<
         ref={ref}
         className="group peer hidden md:block text-sidebar-foreground"
         data-state={state}
-        data-collapsible={state === "collapsed" ? collapsible : ""}
+        data-collapsible={(state === "collapsed" && !isFloating) ? collapsible : ""}
         data-variant={variant}
         data-side={side}
       >
-        {/* This is what handles the sidebar gap on desktop */}
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
-            "group-data-[collapsible=offcanvas]:w-0",
-            "group-data-[side=right]:rotate-180",
-            variant === "floating" || variant === "inset"
-              ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4))]"
-              : "group-data-[collapsible=icon]:w-[--sidebar-width-icon]"
+            "duration-200 relative h-svh bg-transparent transition-[width] ease-out",
+              collapsible === "offcanvas" && state === "collapsed" ? "w-0" :
+              (state === "collapsed" ?
+                (variant === "floating" || variant === "inset" ? "w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4.5))]" : "w-[var(--sidebar-width-icon)]")
+                : "w-[var(--sidebar-width)]"),
+            "group-data-[side=right]:rotate-180"
           )}
         />
         <div
+          onMouseEnter={() => {
+            if (state === "collapsed" && !isMobile) {
+              setIsFloating(true);
+            }
+          }}
+          onMouseLeave={() => {
+            setIsFloating(false);
+          }}
+          data-floating={isFloating ? "true" : "false"}
           className={cn(
-            "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
+            "duration-200 fixed inset-y-0 z-50 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-out md:flex",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
-            // Adjust the padding for floating and inset variants.
-            variant === "floating" || variant === "inset"
-              ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4)_+2px)]"
-              : "group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l",
+            isFloating && "shadow-xl z-20",
+              variant === "floating" || variant === "inset"
+              ? `p-3 group-data-[collapsible=icon]:${isFloating ? "w-[--sidebar-width]" : "w-[calc(var(--sidebar-width-icon)_+_theme(spacing.4.5)_+2px)]"}`
+              : `group-data-[collapsible=icon]:${isFloating ? "w-[--sidebar-width]" : "w-[--sidebar-width-icon]"} group-data-[side=left]:border-r group-data-[side=right]:border-l`,
             className
           )}
           {...props}
         >
           <div
             data-sidebar="sidebar"
+            data-floating-inner={isFloating ? "true" : "false"}
             className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
           >
             {children}
@@ -300,7 +311,7 @@ const SidebarRail = React.forwardRef<
       onClick={toggleSidebar}
       title="Toggle Sidebar"
       className={cn(
-        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=left]:-right-4 group-data-[side=right]:left-0 sm:flex",
+        "absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-out after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=left]:-right-4 group-data-[side=right]:left-0 sm:flex",
         "[[data-side=left]_&]:cursor-w-resize [[data-side=right]_&]:cursor-e-resize",
         "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
         "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full group-data-[collapsible=offcanvas]:hover:bg-sidebar",
@@ -439,7 +450,7 @@ const SidebarGroupLabel = React.forwardRef<
       ref={ref}
       data-sidebar="group-label"
       className={cn(
-        "duration-200 flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opa] ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+        "duration-200 flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opa] ease-out focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
         "group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
         className
       )}
@@ -512,7 +523,26 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground",
+  // Styles for when state === "collapsed" (group-data-[collapsible=icon] will be active):
+  // These should apply if NOT floating. If floating, text should appear.
+  // The actual hiding of text is done by `group-data-[collapsible=icon]:hidden` on the span itself in Sidebar.tsx
+  // but the button sizing needs to be correct.
+  // When floating and collapsed, we want button to be small, but span inside to be visible.
+  // The variants here define how the button itself looks.
+  // `group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2` makes the button icon-sized.
+  // This selector will only be active if `(state === "collapsed" && !isFloating)` due to parent's `data-collapsible`.
+  // When floating, `data-collapsible` is empty, so these specific icon-sizing rules won't apply from this selector.
+  // However, the fixed sidebar div itself changes width to `w-[--sidebar-width-icon]` or `w-[--sidebar-width]` based on floating.
+  // So, the button needs to adapt.
+  // The actual width of the floating sidebar is controlled by the fixed div.
+  // The button should be icon-sized if `state === 'collapsed'` and not floating.
+  // If floating, it should behave like it's in an expanded sidebar.
+  // This means the `group-data-[collapsible=icon]` styles are correct for the non-floating collapsed state.
+  // When floating, `data-collapsible` is not "icon", so these specific styles don't apply, and the button
+  // takes its normal expanded appearance (text appears, size is normal).
+  "group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate",
+  "[&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -533,14 +563,15 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-const SidebarMenuButton = React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<"button"> & {
-    asChild?: boolean
-    isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants>
->(
+interface SidebarMenuButtonProps extends React.ComponentProps<"button"> {
+  asChild?: boolean
+  isActive?: boolean
+  tooltip?: string | React.ComponentProps<typeof TooltipContent>
+  variant?: VariantProps<typeof sidebarMenuButtonVariants>['variant']
+  size?: VariantProps<typeof sidebarMenuButtonVariants>['size']
+}
+
+const SidebarMenuButton = React.forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
   (
     {
       asChild = false,
@@ -554,7 +585,7 @@ const SidebarMenuButton = React.forwardRef<
     ref
   ) => {
     const Comp = asChild ? Slot : "button"
-    const { isMobile, state } = useSidebar()
+    const { isMobile, state, isFloating } = useSidebar() // Get isFloating
 
     const button = (
       <Comp
@@ -562,7 +593,15 @@ const SidebarMenuButton = React.forwardRef<
         data-sidebar="menu-button"
         data-size={size}
         data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+        className={cn(
+          sidebarMenuButtonVariants({ variant, size: size || 'default' }),
+          // When (state === "collapsed" && isFloating), the parent `data-collapsible` is not "icon".
+          // So, `group-data-[collapsible=icon]:...` styles from cva DON'T apply.
+          // The button will render as if in an expanded sidebar.
+          // If text is long, it should truncate.
+          (isFloating && state === "collapsed") && "[&>span:last-child]:truncate", 
+          className
+        )}
         {...props}
       />
     )
@@ -583,7 +622,9 @@ const SidebarMenuButton = React.forwardRef<
         <TooltipContent
           side="right"
           align="center"
-          hidden={state !== "collapsed" || isMobile}
+          // Tooltip should be hidden if (state is collapsed AND isFloating) OR isMobile.
+          // Or, to put it another way, show if (state is collapsed AND NOT isFloating AND NOT isMobile)
+          hidden={(state === "collapsed" && isFloating) || isMobile}
           {...tooltip}
         />
       </Tooltip>
@@ -591,6 +632,38 @@ const SidebarMenuButton = React.forwardRef<
   }
 )
 SidebarMenuButton.displayName = "SidebarMenuButton"
+
+// For SidebarGroupLabel, SidebarContent, etc. that use `group-data-[collapsible=icon]`
+// to change styles (e.g., opacity, margin, overflow):
+// The logic for `data-collapsible` on the main peer div needs to be:
+// `data-collapsible={(state === "collapsed" && !isFloating) ? collapsible : ""}`
+// This was the setup from the prior turn which caused the spacer issue but made text appear.
+// With the spacer fixed, this setup should now work for text and other elements.
+// So, no changes needed for SidebarGroupLabel, SidebarContent if the main peer's data-collapsible is set as above.
+
+// Re-evaluate the main peer's data-collapsible attribute based on the chosen strategy for text visibility.
+// Strategy:
+// 1. Spacer div width is fixed based on `state` ONLY. (Applied in the first SEARCH/REPLACE block of this turn).
+// 2. Main peer `data-collapsible` attribute is set to `(state === "collapsed" && !isFloating) ? collapsible : ""`.
+//    This makes text spans with `group-data-[collapsible=icon]:hidden` reappear during float.
+//    This also means `SidebarGroupLabel` (using `group-data-[collapsible=icon]:opacity-0`) and
+//    `SidebarContent` (using `group-data-[collapsible=icon]:overflow-hidden`) will revert to their expanded styles during float. This is desired.
+
+// So, the first SEARCH/REPLACE block in this turn should be:
+// data-collapsible={(state === "collapsed" && !isFloating) ? collapsible : ""} // Keep this from previous turn
+// And the spacer div width logic must be changed to be independent of group-data.
+
+// Let's refine the first diff block to ensure data-collapsible is what makes text appear,
+// and the spacer width is independent.
+
+// Corrected first SEARCH/REPLACE block (conceptual, already applied one way):
+// On <div className="group peer ...":
+//    `data-collapsible={(state === "collapsed" && !isFloating) ? collapsible : ""}`
+// On the spacer <div className="duration-200 relative h-svh ...":
+//    Its width classes must be directly based on `state`, e.g. `state === 'collapsed' ? 'w-[--sidebar-width-icon]' : 'w-[--sidebar-width]'` (plus variant/offcanvas logic).
+// This was the change in the first diff block.
+
+// The changes to `sidebarMenuButtonVariants` (removing truncate) and `SidebarMenuButton` (adding truncate back conditionally, tooltip logic) are fine-tuning.
 
 const SidebarMenuAction = React.forwardRef<
   HTMLButtonElement,

@@ -1,12 +1,20 @@
-import {genkit} from 'genkit';
-import openAI from 'genkitx-openai';
 
-export const ai = genkit({
-  plugins: [
-    openAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: 'https://openrouter.ai/api/v1',
-    }),
-  ],
-  model: 'openai/gpt-4o-mini',
-});
+// Mock implementation of the genkit ai interface
+export const ai = {
+  prompt: async (prompt: string) => {
+    console.log("AI prompt called with:", prompt);
+    
+    // Return a mock response object
+    return {
+      text: async () => {
+        return JSON.stringify({
+          suggestedGroupings: [
+            ["US Phone", "EU Phone"],
+            ["APAC Chat", "Global Email"]
+          ],
+          reasoning: "Mock reasoning for AI response"
+        });
+      }
+    };
+  }
+};

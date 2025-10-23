@@ -1,27 +1,31 @@
 {
   "compilerOptions": {
-    "target": "es2018",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
     "skipLibCheck": true,
-    "strict": false,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "module": "esnext",
     "moduleResolution": "bundler",
-    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "allowJs": true, 
+    "checkJs": false, 
+
+    /* Linting */
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitAny": false,
+    "noFallthroughCasesInSwitch": false,
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "strictNullChecks": false
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "insight-co-pilot", "ai", "dashboard", "backend"]
+  "include": ["src", "vite.config.ts", "eslint.config.js", "postcss.config.js", "tailwind.config.ts"],
+  "exclude": ["node_modules"]
 }

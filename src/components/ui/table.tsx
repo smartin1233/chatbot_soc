@@ -1,12 +1,16 @@
-import * as React from "react"
 
+import * as React from "react"
 import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div className="relative w-full overflow-auto" 
+  style={{
+    height: '100%',               // inherit or stretch as needed
+    maxHeight: 'calc(100vh - 200px)', // adjust 200px as per your header/toolbar height
+  }}>
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
@@ -20,7 +24,7 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead ref={ref} className={cn("[&_tr]:border-b sticky top-0 bg-background z-10", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -83,14 +87,27 @@ TableHead.displayName = "TableHead"
 
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
-  React.TdHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-  <td
-    ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
-    {...props}
-  />
-))
+  React.TdHTMLAttributes<HTMLTableCellElement> & { value?: number }
+>(({ className, value, children, ...props }, ref) => {
+  // Add color styling based on value (blue for positive, coral for negative)
+  const valueColorClass = value !== undefined 
+    ? value > 0 
+      ? "text-blue-600 dark:text-blue-400" 
+      : value < 0 
+        ? "text-[#FF7F50] dark:text-[#FF7F50]" // Coral color
+        : ""
+    : "";
+  
+  return (
+    <td
+      ref={ref}
+      className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", valueColorClass, className)}
+      {...props}
+    >
+      {children}
+    </td>
+  );
+})
 TableCell.displayName = "TableCell"
 
 const TableCaption = React.forwardRef<
