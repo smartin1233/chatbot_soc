@@ -32,13 +32,6 @@
   color: var(--foreground) !important;
 }
 
-/* :root.light-default * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.light-blue {
   --background: 0 0% 100%;
   --foreground: 210 17% 10%;
@@ -72,13 +65,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-/* :root.light-blue * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.light-teal {
   --background: 0 0% 100%;
@@ -114,13 +100,6 @@
   color: var(--foreground) !important;
 }
 
-/* :root.light-teal * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.light-green {
   --background: 0 0% 100%;
   --foreground: 210 17% 10%;
@@ -154,13 +133,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-/* :root.light-green * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.light-purple {
   --background: 0 0% 100%;
@@ -196,13 +168,6 @@
   color: var(--foreground) !important;
 }
 
-/* :root.light-purple * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.light-orange {
   --background: 0 0% 100%;
   --foreground: 210 17% 10%;
@@ -235,13 +200,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-/* :root.light-orange * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.dark-default {
    --background: 0 0% 3.9% !important;
@@ -276,13 +234,6 @@
   color: var(--foreground) !important;
 }
 
-/* :root.dark-default * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.dark-blue {
    --background: 0 0% 3.9% !important;
    --foreground: 0 0% 98% !important;
@@ -315,13 +266,6 @@
   --negative: red;
 }
 
-/* :root.dark-blue * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.dark-green {
    --background: 0 0% 3.9% !important;
    --foreground: 0 0% 98% !important;
@@ -353,13 +297,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-/* :root.dark-green * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.dark-teal {
     --background: 0 0% 3.9% !important;
@@ -394,13 +331,6 @@
   color: var(--foreground) !important;
 }
 
-/* :root.dark-teal * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
-
 :root.dark-purple {
   --background: 0 0% 3.9% !important;
   --foreground: 0 0% 98% !important;
@@ -433,13 +363,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-/* :root.dark-purple * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.dark-orange {
   --background: 0 0% 3.9% !important;
@@ -519,7 +442,6 @@
   color: var(--foreground) !important;
 }
 
-
 :root.light-red {
   --background: 0 0% 100%;
   --foreground: 210 17% 10%;
@@ -565,15 +487,6 @@
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
-
-
-
-/* :root.dark-orange * {
-  --background: inherit !important;
-  --foreground: inherit !important;
-  background-color: inherit !important;
-  color: inherit !important;
-} */
 
 :root.light-gray {
   --background: 0 0% 100%;
@@ -668,7 +581,7 @@ button[class*="btn"]:hover,
   background-color: var(--secondary);
 }
 
-/* Ensure dropdown menus have proper background */
+/* Make sure dropdown menus have proper background */
 .dropdown-menu {
   background-color: var(--popover);
   color: var(--popover-foreground);
@@ -786,7 +699,6 @@ table th {
   color: var(--muted-foreground);
 }
 
-
 /* Data grid / AG Grid customizations */
 .ag-theme-alpine, .ag-theme-alpine-dark {
   --ag-background-color: var(--card);
@@ -799,7 +711,7 @@ table th {
   --ag-selected-row-background-color: var(--primary);
 }
 
-/* Additional styling for sidebar specifically */
+/* More styling for sidebar specifically */
 [data-sidebar="menu-button"] {
   color: var(--sidebar-foreground);
 }
