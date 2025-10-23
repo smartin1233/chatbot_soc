@@ -882,11 +882,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Skip onboarding immediately
         dispatch({ type: 'END_ONBOARDING' });
         
-        // Queue the initial prompt to be sent by the chat panel
-        if (agentContext.initialPrompt) {
-          dispatch({ type: 'QUEUE_USER_PROMPT', payload: agentContext.initialPrompt });
-        }
-        
         // Update initial message with agent context
         dispatch({
           type: 'ADD_MESSAGE',
@@ -972,23 +967,120 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         console.log('✅ State updated with business units');
 
-        // Update the loading message with success
-        const totalLobs = businessUnits.reduce((sum, bu) => sum + bu.lobs.length, 0);
-        const lobsWithData = businessUnits.reduce(
-          (sum, bu) => sum + bu.lobs.filter(lob => lob.hasData).length,
-          0
-        );
+        // Check for agent launch context and match BU/LOB
+        const agentContextStr = localStorage.getItem('agentLaunchContext');
+        if (agentContextStr) {
+          try {
+            const agentContext = JSON.parse(agentContextStr);
+            console.log('🔍 Matching BU/LOB from agent context:', agentContext);
 
-        dispatch({
-          type: 'UPDATE_LAST_MESSAGE',
-          payload: {
-            content: `✅ **Successfully loaded from backend!**\n\n📊 **Summary:**\n• ${businessUnits.length} Business Units\n• ${totalLobs} Lines of Business\n• ${lobsWithData} LOBs with data\n\nSelect a Business Unit and Line of Business to get started with analysis.`,
-            isTyping: false,
-            suggestions: ['View all Business Units', 'Create new Business Unit', 'Upload data to LOB'],
-          },
-        });
+            // Match Business Unit
+            let matchedBU: BusinessUnit | null = null;
+            if (agentContext.businessUnit) {
+              // Try matching by id first, then by code (convert to strings for comparison)
+              matchedBU = businessUnits.find(bu => 
+                String(bu.id) === String(agentContext.businessUnit.id) || 
+                String(bu.code).toLowerCase() === String(agentContext.businessUnit.code).toLowerCase()
+              ) || null;
+
+              if (matchedBU) {
+                console.log('✅ Agent launch: Business Unit selected', matchedBU.displayName || matchedBU.name);
+                
+                // Match Line of Business if specified
+                let matchedLOB: LineOfBusiness | null = null;
+                if (agentContext.lineOfBusiness && matchedBU.lobs && matchedBU.lobs.length > 0) {
+                  // Try matching by id first, then by code (convert to strings for comparison)
+                  matchedLOB = matchedBU.lobs.find(lob => 
+                    String(lob.id) === String(agentContext.lineOfBusiness.id) || 
+                    String(lob.code).toLowerCase() === String(agentContext.lineOfBusiness.code).toLowerCase()
+                  ) || null;
+
+                  if (matchedLOB) {
+                    console.log('✅ Agent launch: Line of Business selected', matchedLOB.name);
+                    
+                    // Dispatch BU first, then LOB
+                    dispatch({ type: 'SET_SELECTED_BU', payload: matchedBU });
+                    dispatch({ type: 'SET_SELECTED_LOB', payload: matchedLOB });
+                    
+                    // Add context message
+                    dispatch({
+                      type: 'ADD_MESSAGE',
+                      payload: {
+                        id: crypto.randomUUID(),
+                        role: 'system',
+                        content: `Context set to **${matchedBU.displayName || matchedBU.name}** - **${matchedLOB.name}**`
+                      }
+                    });
+                  } else {
+                    console.warn('Agent launch: Line of Business not found', { 
+                      searchedLOB: agentContext.lineOfBusiness, 
+                      availableLOBs: matchedBU.lobs 
+                    });
+                    
+                    // Still set BU even if LOB not found
+                    dispatch({ type: 'SET_SELECTED_BU', payload: matchedBU });
+                    
+                    dispatch({
+                      type: 'ADD_MESSAGE',
+                      payload: {
+                        id: crypto.randomUUID(),
+                        role: 'system',
+                        content: `Context set to **${matchedBU.displayName || matchedBU.name}** (LOB not found)`
+                      }
+                    });
+                  }
+                } else {
+                  // No LOB to match, just set BU
+                  dispatch({ type: 'SET_SELECTED_BU', payload: matchedBU });
+                  
+                  dispatch({
+                    type: 'ADD_MESSAGE',
+                    payload: {
+                      id: crypto.randomUUID(),
+                      role: 'system',
+                      content: `Context set to **${matchedBU.displayName || matchedBU.name}**`
+                    }
+                  });
+                }
+
+                // NOW queue the initial prompt (after BU/LOB are set)
+                if (agentContext.initialPrompt) {
+                  console.log('📝 Queueing initial prompt after BU/LOB selection:', agentContext.initialPrompt);
+                  dispatch({ type: 'QUEUE_USER_PROMPT', payload: agentContext.initialPrompt });
+                }
+              } else {
+                console.warn('Agent launch: Business Unit not found', { 
+                  searchedBU: agentContext.businessUnit, 
+                  availableBUs: businessUnits.map(bu => ({ id: bu.id, code: bu.code, name: bu.displayName || bu.name }))
+                });
+                
+                // Still queue prompt even if BU not found (degraded experience)
+                if (agentContext.initialPrompt) {
+                  console.log('⚠️ Queueing initial prompt without BU/LOB context');
+                  dispatch({ type: 'QUEUE_USER_PROMPT', payload: agentContext.initialPrompt });
+                }
+              }
+            }
+          } catch (error) {
+            console.error('❌ Agent launch: Failed to match BU/LOB from context:', error);
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to load business units:', error);
+
+        // Even if API fails, still queue the prompt if agent context exists
+        const agentContextStr = localStorage.getItem('agentLaunchContext');
+        if (agentContextStr) {
+          try {
+            const agentContext = JSON.parse(agentContextStr);
+            if (agentContext.initialPrompt) {
+              console.log('⚠️ API failed but queueing initial prompt anyway');
+              dispatch({ type: 'QUEUE_USER_PROMPT', payload: agentContext.initialPrompt });
+            }
+          } catch (parseError) {
+            console.error('❌ Failed to parse agent context during error handling:', parseError);
+          }
+        }
 
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         const isNetworkError = errorMessage.includes('Network error') || errorMessage.includes('fetch');

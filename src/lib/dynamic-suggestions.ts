@@ -65,6 +65,8 @@ export class DynamicSuggestionGenerator {
         suggestions.push('Generate business insights');
       }
 
+      suggestions.push('Perform EDA on forecast results');
+      suggestions.push('Check for anomalies/outliers');
       suggestions.push('Analyze forecast trends');
       suggestions.push('Run scenario analysis');
       return suggestions.slice(0, 4);
@@ -169,6 +171,8 @@ export class DynamicSuggestionGenerator {
     return [
       'Run forecast analysis',
       'Generate 30-day forecast',
+      'Perform EDA',
+      'Check for anomalies/outliers',
       'Train ML models',
       'Compare model performance'
     ];
@@ -241,6 +245,8 @@ export class DynamicSuggestionGenerator {
           suggestions.push('Generate business insights');
         }
 
+        suggestions.push('Perform EDA on results');
+        suggestions.push('Check for anomalies/outliers');
         suggestions.push('Analyze forecast trends');
         suggestions.push('View confidence intervals');
         break;
