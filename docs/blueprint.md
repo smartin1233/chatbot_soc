@@ -1,4 +1,4 @@
-# **App Name**: ForecastFlow BI
+# **App Name**: AForce360.ai-agent
 
 ## Core Features:
 

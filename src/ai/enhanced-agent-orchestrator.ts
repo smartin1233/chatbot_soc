@@ -460,7 +460,7 @@ export class EnhancedAgentOrchestrator {
     const hasBU = context.selectedBu;
     
     if (!hasBU) {
-      return `### 🚀 Welcome to ForecastFlow BI!
+      return `### 🚀 Welcome to Aforce360.ai-agent!
       
 I'm here to guide you through your business intelligence journey. Let's start by:
 

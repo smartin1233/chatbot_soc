@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'ForecastFlow BI',
+  title: 'AForce360.ai-agent',
   description: 'Business Intelligence Onboarding Agent Chatbot',
 };
 

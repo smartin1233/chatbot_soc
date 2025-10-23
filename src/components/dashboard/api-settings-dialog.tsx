@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Input, SecuredInput } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import {
   Settings, Key, CheckCircle, XCircle, RefreshCw,
   AlertTriangle, Info, Zap, Globe, Lock
 } from 'lucide-react';
-import { enhancedAPIClient } from '@/lib/enhanced-api-client';
+import { enhancedAPIClient, validateAPIKey } from '@/lib/enhanced-api-client';
 
 interface APISettingsDialogProps {
   open: boolean;
@@ -27,6 +27,12 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
   const [testResults, setTestResults] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [isUsingDefaultKey, setIsUsingDefaultKey] = useState(() => {
+    const defaultKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+    return enhancedAPIClient.getConfig().openaiKey === defaultKey;
+  });
+  const [showOverrideWarning, setShowOverrideWarning] = useState(false);
+  const [restrictedKeyError, setRestrictedKeyError] = useState('');
 
   useEffect(() => {
     const updateConfig = (newConfig: any) => setConfig(newConfig);
@@ -67,6 +73,23 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
   };
 
   const handleSave = async () => {
+    // Validate API key against restricted keys
+    const validation = validateAPIKey(config.openaiKey.trim());
+    if (!validation.isValid) {
+      if (validation.error && validation.error.includes('restricted')) {
+        // Auto-clear the field for restricted keys
+        setConfig(prev => ({ ...prev, openaiKey: '' }));
+        setRestrictedKeyError(validation.error);
+        alert(validation.error);
+        return;
+      } else {
+        // Other validation errors (empty key, etc.)
+        setRestrictedKeyError(validation.error || '');
+        alert(validation.error);
+        return;
+      }
+    }
+
     // Validate at least one provider is enabled
     if (config.enableOpenAI === false && config.enableOpenRouter === false) {
       alert('At least one API provider must be enabled');
@@ -83,7 +106,9 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
     setSaving(true);
 
     try {
-      enhancedAPIClient.updateConfig(config);
+      // Trim the API key before saving
+      const trimmedConfig = { ...config, openaiKey: config.openaiKey.trim() };
+      enhancedAPIClient.updateConfig(trimmedConfig);
 
       // Refresh health status
       await checkHealth();
@@ -131,6 +156,42 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
     if (health?.error) return health.error;
 
     return 'Status unknown - test your API key';
+  };
+
+  // Helper function to check if using default key
+  const checkIfDefaultKey = (apiKey: string): boolean => {
+    const defaultKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+    return apiKey === defaultKey;
+  };
+
+  // Handle key input changes with override detection
+  const handleKeyInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    const defaultKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+    
+    // Check if user is changing from default key
+    if (config.openaiKey === defaultKey && newValue !== defaultKey) {
+      setShowOverrideWarning(true);
+    }
+    
+    // Update config
+    setConfig(prev => ({ ...prev, openaiKey: newValue }));
+    
+    // Update isUsingDefaultKey state
+    setIsUsingDefaultKey(checkIfDefaultKey(newValue));
+    
+    // Clear restricted key error when typing
+    setRestrictedKeyError('');
+  };
+
+  // Handle reset to default key
+  const handleResetToDefault = () => {
+    const defaultKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
+    setConfig(prev => ({ ...prev, openaiKey: defaultKey }));
+    setShowOverrideWarning(false);
+    setIsUsingDefaultKey(true);
+    setTestResults(prev => ({ ...prev, openai: undefined }));
+    setRestrictedKeyError('');
   };
 
   return (
@@ -203,14 +264,23 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                   <div className="space-y-2">
                     <Label htmlFor="openai-key">API Key</Label>
                     <div className="flex gap-2">
-                      <Input
+                      <SecuredInput
                         id="openai-key"
                         type="password"
                         placeholder="sk-..."
                         value={config.openaiKey}
-                        onChange={(e) => setConfig(prev => ({ ...prev, openaiKey: e.target.value }))}
-                        className="font-mono"
+                        onChange={handleKeyInputChange}
+                        className={`font-mono ${showOverrideWarning ? 'border-yellow-500 border-2' : ''}`}
                       />
+                      {!isUsingDefaultKey && (
+                        <Button
+                          variant="outline"
+                          onClick={handleResetToDefault}
+                          title="Reset to default API key"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         onClick={() => handleTestKey('openai')}
@@ -224,6 +294,22 @@ export default function APISettingsDialog({ open, onOpenChange }: APISettingsDia
                         Test
                       </Button>
                     </div>
+                    {showOverrideWarning && (
+                      <Alert className="bg-yellow-50 border-yellow-500">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-yellow-800">
+                          ⚠️ You are overriding the default API key. Make sure you enter a valid key.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {restrictedKeyError && (
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>
+                          {restrictedKeyError}
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     <div className="flex items-center gap-2 text-sm">
                       {getStatusIcon('openai')}
                       <span className={`${testResults.openai?.isValid || healthStatus?.openai?.available

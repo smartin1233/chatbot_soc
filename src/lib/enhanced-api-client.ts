@@ -19,6 +19,42 @@ const DEFAULT_CONFIG: APIConfig = {
   model: 'gpt-4.1-mini'
 };
 
+// Simple hash function for API key validation
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Hashed restricted API keys (stored as hashes for security)
+const RESTRICTED_API_KEY_HASHES: string[] = [
+  '2g8kaxfjrg' // Hash of the restricted key - prevents plaintext exposure in source code
+];
+
+/**
+ * Validate API key against restricted keys list
+ */
+export function validateAPIKey(apiKey: string): { isValid: boolean; error?: string } {
+  if (!apiKey || apiKey.trim().length === 0) {
+    return { isValid: false, error: 'API key cannot be empty' };
+  }
+
+  // Check if key hash matches any restricted key hash
+  const keyHash = simpleHash(apiKey);
+  if (RESTRICTED_API_KEY_HASHES.includes(keyHash)) {
+    return { 
+      isValid: false, 
+      error: 'This API key is restricted and cannot be used. Please use your own API key or contact support.' 
+    };
+  }
+
+  return { isValid: true };
+}
+
 // Cache implementation
 interface CacheEntry<T> {
   data: T;

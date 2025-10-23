@@ -9,8 +9,8 @@ import { ThemeProvider } from '@/components/theme-context';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'ForecastFlow BI',
-  description: 'Business Intelligence Onboarding Agent Chatbot',
+  title: 'Aforce360.ai-agent',
+  description: 'AI-Powered Business Intelligence and Forecasting Agent',
 };
 
 export default function RootLayout({
