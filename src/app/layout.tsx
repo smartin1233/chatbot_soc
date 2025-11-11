@@ -5,6 +5,7 @@ import '../styles/themes.css';
 import { Toaster } from "@/components/ui/toaster";
 import { ClientWrapper } from '@/components/client-wrapper';
 import { ThemeProvider } from '@/components/theme-context';
+import { Header } from '@/components/layout/Header';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className={`${inter.variable} font-body antialiased`}>
         <ThemeProvider>
           <ClientWrapper>
+            <Header />
             {children}
             <Toaster />
           </ClientWrapper>

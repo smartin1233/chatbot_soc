@@ -1,0 +1,29 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  sessionId   String
+  userId      String?
+  agentId     String?
+  messageType String
+  content     String
+  reasoning   String?
+  timestamp   DateTime @default(now())
+  agent       Agent?   @relation(fields: [agentId], references: [id])
+}
+
+model Agent {
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  category     String?
+  createdAt    DateTime       @default(now())
+  conversations Conversation[]
+}
